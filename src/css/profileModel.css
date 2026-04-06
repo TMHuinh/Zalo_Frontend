@@ -1,0 +1,94 @@
+/* profileModel.css */
+
+/* Overlay mờ nền */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* nền mờ */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Nội dung modal */
+.modal-content {
+  position: relative;
+  width: 350px;
+  background: linear-gradient(to bottom right, #0b5ed7, #6ca0f7); /* gradient nền */
+  color: white;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+
+/* Nút đóng */
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+/* Avatar trong modal */
+.modal-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #ffffff50; /* nền trắng mờ */
+  color: #0b5ed7;
+  font-size: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 15px;
+  border: 2px solid white;
+}
+
+/* Tên user */
+.modal-name {
+  font-size: 22px;
+  margin-bottom: 15px;
+}
+
+/* Thông tin user */
+.modal-info p {
+  margin: 5px 0;
+}
+
+/* Nút hành động */
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-around;
+}
+
+.btn-change-password,
+.btn-update-info {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Nút đổi mật khẩu */
+.btn-change-password {
+  background-color: #ffc107;
+  color: #0b5ed7;
+}
+
+/* Nút cập nhật info */
+.btn-update-info {
+  background-color: #198754;
+  color: white;
+}
