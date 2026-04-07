@@ -13,6 +13,9 @@ function Login() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
 
+  // ✅ NEW
+  const [agreePolicy, setAgreePolicy] = useState(false);
+
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -21,9 +24,11 @@ function Login() {
     email: "",
     password: "",
     otp: "",
+    policy: "", // ✅ NEW
   });
 
   const navigate = useNavigate();
+
   const validateEmailOnly = () => {
     const newErrors = {};
     const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -37,6 +42,7 @@ function Login() {
     setErrors((prev) => ({ ...prev, ...newErrors }));
     return Object.keys(newErrors).length === 0;
   };
+
   const handleForgotPassword = async () => {
     setError("");
 
@@ -59,12 +65,14 @@ function Login() {
     setPassword("");
     setConfirmPassword("");
     setOtp("");
+    setAgreePolicy(false); // ✅ NEW
     setError("");
     setErrors({
       fullName: "",
       email: "",
       password: "",
       otp: "",
+      policy: "",
     });
   };
 
@@ -98,6 +106,11 @@ function Login() {
 
     if (!password) {
       newErrors.password = "Vui lòng nhập mật khẩu";
+    }
+
+    // ✅ NEW
+    if (!agreePolicy) {
+      newErrors.policy = "Bạn phải đồng ý với điều khoản";
     }
 
     setErrors((prev) => ({ ...prev, ...newErrors }));
@@ -135,7 +148,6 @@ function Login() {
         password,
       });
 
-      // giả sử backend register xong sẽ gửi OTP qua email
       alert("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
       setIsVerifyMode(true);
     } catch (err) {
@@ -180,7 +192,7 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-header">
-        <h1>Zalo</h1>
+        <h1>Chat</h1>
         <p>
           Đăng nhập tài khoản
           <br />
@@ -193,10 +205,10 @@ function Login() {
           {isForgotPassword
             ? "Lấy lại mật khẩu"
             : isVerifyMode
-              ? "Xác thực email"
-              : isRegister
-                ? "Đăng ký tài khoản"
-                : "Đăng nhập với mật khẩu"}
+            ? "Xác thực email"
+            : isRegister
+            ? "Đăng ký tài khoản"
+            : "Đăng nhập với mật khẩu"}
         </h3>
 
         {isForgotPassword ? (
@@ -225,6 +237,7 @@ function Login() {
                   email: "",
                   password: "",
                   otp: "",
+                  policy: "",
                 });
               }}
               style={{ cursor: "pointer" }}
@@ -326,6 +339,24 @@ function Login() {
                   />
                 </div>
                 {error && <p className="error-text">{error}</p>}
+
+                {/* ✅ POLICY */}
+                <div className="policy">
+                  <input
+                    type="checkbox"
+                    checked={agreePolicy}
+                    onChange={(e) => setAgreePolicy(e.target.checked)}
+                  />
+                  <span>
+                    Tôi đồng ý với{" "}
+                    <a href="/policy" target="_blank">
+                      điều khoản sử dụng
+                    </a>
+                  </span>
+                </div>
+                {errors.policy && (
+                  <p className="error-text">{errors.policy}</p>
+                )}
               </>
             )}
 
@@ -340,13 +371,7 @@ function Login() {
               className="qr-login"
               onClick={() => {
                 setIsRegister(!isRegister);
-                setError("");
-                setErrors({
-                  fullName: "",
-                  email: "",
-                  password: "",
-                  otp: "",
-                });
+                resetForm();
               }}
               style={{ cursor: "pointer" }}
             >
@@ -360,13 +385,7 @@ function Login() {
                 className="forgot"
                 onClick={() => {
                   setIsForgotPassword(true);
-                  setError("");
-                  setErrors({
-                    fullName: "",
-                    email: "",
-                    password: "",
-                    otp: "",
-                  });
+                  resetForm();
                 }}
                 style={{ cursor: "pointer" }}
               >

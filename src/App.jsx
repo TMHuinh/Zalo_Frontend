@@ -4,6 +4,7 @@ import Chat from "./pages/Chat";
 import PrivateRoute from "./components/PrivateRoute";
 import Profile from "./pages/Profile";
 import ChangePassword from "./components/ChangePassword";
+import Policy from "./pages/Policy";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/profile" element={<h2>Profile Page</h2>} />
         {/* <Route path="/profile/:id" element={<Profile />} /> */}
         <Route path="/change-password" element={<ChangePassword />} />
+         <Route path="/policy" element={<Policy />} />
       </Routes>
     </BrowserRouter>
   );
