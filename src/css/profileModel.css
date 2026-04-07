@@ -1,33 +1,32 @@
-/* profileModel.css */
-
-/* Overlay mờ nền */
+/* ========== OVERLAY ========== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* nền mờ */
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
 }
 
-/* Nội dung modal */
+/* ========== MODAL CONTENT ========== */
 .modal-content {
   position: relative;
-  width: 350px;
-  background: linear-gradient(to bottom right, #0b5ed7, #6ca0f7); /* gradient nền */
-  color: white;
+  width: 360px;
+  background: white;
+  color: rgb(4, 1, 1);
   border-radius: 15px;
-  padding: 20px;
+  padding: 0 20px 20px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
   text-align: center;
   font-family: Arial, sans-serif;
+  overflow: hidden;
 }
 
-/* Nút đóng */
+/* ========== CLOSE BUTTON ========== */
 .close-btn {
   position: absolute;
   top: 10px;
@@ -37,58 +36,202 @@
   border: none;
   color: white;
   cursor: pointer;
+  z-index: 10;
 }
 
-/* Avatar trong modal */
-.modal-avatar {
-  width: 80px;
-  height: 80px;
+/* ========== HEADER BACKGROUND ========== */
+.modal-header-bg {
+  width: 100%;
+  height: 120px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 15px 15px 0 0;
+}
+
+/* ========== AVATAR WRAPPER ========== */
+.avatar-wrapper {
+  position: relative;
+  width: 95px;
+  height: 95px;
+  margin: -50px auto 10px; /* kéo lên đè background */
+  cursor: pointer;
+}
+
+/* ========== AVATAR IMAGE ========== */
+.modal-avatar-img {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  background-color: #ffffff50; /* nền trắng mờ */
+  object-fit: cover;
+  border: 3px solid white;
+  background: #fff;
+}
+
+/* ========== AVATAR TEXT (fallback) ========== */
+.modal-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #ffffff50;
   color: #0b5ed7;
-  font-size: 36px;
+  font-size: 34px;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0 auto 15px;
-  border: 2px solid white;
+  border: 3px solid white;
+  font-weight: bold;
 }
 
-/* Tên user */
+/* ========== CAMERA ICON ========== */
+.camera-icon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: black;
+  color: white;
+  border-radius: 50%;
+  padding: 6px;
+  font-size: 12px;
+  border: 2px solid white;
+  transition: 0.2s;
+}
+
+/* Hover effect */
+.avatar-wrapper:hover .camera-icon {
+  transform: scale(1.2);
+  background: #333;
+}
+
+/* ========== USER NAME ========== */
 .modal-name {
   font-size: 22px;
-  margin-bottom: 15px;
+  margin: 10px 0 15px;
+  font-weight: bold;
 }
 
-/* Thông tin user */
+/* ========== USER INFO ========== */
+.modal-info {
+  text-align: left;
+  padding: 0 10px;
+}
+
 .modal-info p {
-  margin: 5px 0;
+  margin: 6px 0;
+  font-size: 14px;
 }
 
-/* Nút hành động */
+/* ========== ACTION BUTTONS ========== */
 .modal-actions {
   margin-top: 20px;
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
+  gap: 10px;
 }
 
+/* Common button */
 .btn-change-password,
 .btn-update-info {
-  padding: 8px 15px;
+  flex: 1;
+  padding: 10px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
+  transition: 0.2s;
 }
 
-/* Nút đổi mật khẩu */
+/* Change password */
 .btn-change-password {
   background-color: #ffc107;
   color: #0b5ed7;
 }
 
-/* Nút cập nhật info */
+.btn-change-password:hover {
+  background-color: #ffca2c;
+}
+
+/* Update info */
 .btn-update-info {
   background-color: #198754;
   color: white;
+}
+
+.btn-update-info:hover {
+  background-color: #157347;
+}
+
+/* ===== PREVIEW AVATAR ===== */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.preview-image {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 10px;
+}
+
+/* ===== ACTION MODAL ===== */
+.action-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 3000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* box chọn */
+.action-modal {
+  width: 260px;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease;
+}
+
+/* button */
+.action-modal button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  background: white;
+  font-size: 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.action-modal button:hover {
+  background: #f5f5f5;
+}
+
+/* nút hủy */
+.cancel-btn {
+  color: red;
+  font-weight: bold;
+}
+
+/* animation */
+@keyframes fadeIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }

@@ -51,8 +51,7 @@ function ChangePassword() {
       setConfirmPassword("");
 
       setTimeout(() => {
-        const userId = localStorage.getItem("userId");
-        navigate(`/profile/${userId}`);
+        navigate(`/chat`);
       }, 1000);
     } catch (err) {
       setMessage(err.response?.data?.message || "Có lỗi xảy ra, thử lại sau");
