@@ -41,11 +41,11 @@
 }
 
 /* Logout button */
-/* .logout-button {
+.logout-button {
   margin-top: auto;
   width: 50px;
   height: 50px;
-  background-color: #ffc107;
+  background-color: #fff;
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -58,4 +58,4 @@
 
 .logout-button:hover {
   transform: scale(1.1);
-} */
+}

@@ -5,7 +5,7 @@ import userApi from "../api/userApi";
 import loginApi from "../api/loginApi";
 import ProfileModal from "./ProfileModel";
 import "../css/sidebar.css";
-
+import { FiLogOut } from "react-icons/fi";
 function Sidebar() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,7 +76,7 @@ function Sidebar() {
         onClick={handleLogout}
         title="Đăng xuất"
       >
-        🔓
+        <FiLogOut size={20} />
       </button>
 
       {/* Modal profile */}
