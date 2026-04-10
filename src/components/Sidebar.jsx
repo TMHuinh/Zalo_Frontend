@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { getUserIdFromToken } from "../utils/auth";
 import userApi from "../api/userApi";
 import loginApi from "../api/loginApi";
-import ProfileModal from "./ProfileModel";
+import ProfileModal from "../components/ProfileModel"; // ✅ FIX TÊN FILE
 import "../css/sidebar.css";
 import { FiLogOut } from "react-icons/fi";
 import { toast } from "react-toastify";
-function Sidebar() {
+import { FaCommentDots, FaAddressBook } from "react-icons/fa";
+
+function Sidebar({ tab, setTab }) { // ✅ NHẬN PROPS
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -19,7 +21,7 @@ function Sidebar() {
       if (!userId) return;
       try {
         const res = await userApi.getById(userId);
-        setUser(res.data.result.result); // avatarUrl có trong user
+        setUser(res.data.result.result);
       } catch (err) {
         console.error(err);
       }
@@ -30,7 +32,6 @@ function Sidebar() {
   // Mở modal profile
   const handleAvatarClick = () => {
     if (!user) {
-      // alert("Chưa đăng nhập");
       toast.error("Chưa đăng nhập");
       return;
     }
@@ -47,14 +48,11 @@ function Sidebar() {
       await loginApi.logout(token);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("userId");
-      // alert("Đăng xuất thành công");
       toast.success("Đăng xuất thành công");
       navigate("/");
     } catch (err) {
       console.error("Logout error:", err);
-      // alert("Đăng xuất thất bại, thử lại");
       toast.error("Đăng xuất thất bại");
-      console.log(err);
     }
   };
 
@@ -75,7 +73,22 @@ function Sidebar() {
         )}
       </div>
 
-      {/* Logout icon */}
+      {/* NAV ICONS */}
+      <div
+        className={`sidebar-icon ${tab === "chat" ? "active" : ""}`}
+        onClick={() => setTab("chat")}
+      >
+        <FaCommentDots />
+      </div>
+
+      <div
+        className={`sidebar-icon ${tab === "contacts" ? "active" : ""}`}
+        onClick={() => setTab("contacts")}
+      >
+        <FaAddressBook />
+      </div>
+
+      {/* Logout */}
       <button
         className="logout-button"
         onClick={handleLogout}
@@ -84,17 +97,7 @@ function Sidebar() {
         <FiLogOut size={20} />
       </button>
 
-      {/* Modal profile */}
-      {/* <ProfileModal
-        user={user}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onChangePassword={() => {
-          setIsModalOpen(false);
-          navigate("/change-password");
-        }}
-        onUpdateInfo={() => alert("Chức năng cập nhật thông tin chưa triển khai")}
-      /> */}
+      {/* Profile Modal */}
       <ProfileModal
         user={user}
         isOpen={isModalOpen}
@@ -104,7 +107,7 @@ function Sidebar() {
           navigate("/change-password");
         }}
         onUpdateInfo={(updatedUser) => {
-          setUser(updatedUser); // ✅ cập nhật user state ngay
+          setUser(updatedUser);
         }}
       />
     </div>
