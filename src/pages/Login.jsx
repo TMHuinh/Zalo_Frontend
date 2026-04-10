@@ -13,6 +13,7 @@ function Login() {
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [phone, setPhone] = useState("");
 
   // ✅ NEW
   const [agreePolicy, setAgreePolicy] = useState(false);
@@ -26,6 +27,7 @@ function Login() {
     password: "",
     otp: "",
     policy: "", // ✅ NEW
+    phone: "",
   });
 
   const navigate = useNavigate();
@@ -66,6 +68,7 @@ function Login() {
     setFullName("");
     setEmail("");
     setPassword("");
+    setPhone("");
     setConfirmPassword("");
     setOtp("");
     setAgreePolicy(false); // ✅ NEW
@@ -76,6 +79,7 @@ function Login() {
       password: "",
       otp: "",
       policy: "",
+      phone: "",
     });
   };
 
@@ -110,6 +114,11 @@ function Login() {
 
     if (!password) {
       newErrors.password = "Vui lòng nhập mật khẩu";
+    }
+    if (!phone.trim()) {
+      newErrors.phone = "Vui lòng nhập số điện thoại";
+    } else if (!/^0\d{9}$/.test(phone)) {
+      newErrors.phone = "Số điện thoại không hợp lệ";
     }
 
     // ✅ NEW
@@ -150,6 +159,7 @@ function Login() {
         fullName,
         email,
         password,
+        phone,
       });
 
       // alert("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
@@ -350,6 +360,17 @@ function Login() {
                 </div>
                 {error && <p className="error-text">{error}</p>}
 
+                {/* ✅ PHONE */}
+                <div className="input-group">
+                  <input
+                    type="text"
+                    placeholder="Số điện thoại"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+                {errors.phone && <p className="error-text">{errors.phone}</p>}
+
                 {/* ✅ POLICY */}
                 <div className="policy">
                   <input
@@ -357,6 +378,7 @@ function Login() {
                     checked={agreePolicy}
                     onChange={(e) => setAgreePolicy(e.target.checked)}
                   />
+
                   <span>
                     Tôi đồng ý với{" "}
                     <a href="/policy" target="_blank">
