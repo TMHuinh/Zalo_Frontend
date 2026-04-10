@@ -6,6 +6,7 @@ import loginApi from "../api/loginApi";
 import ProfileModal from "./ProfileModel";
 import "../css/sidebar.css";
 import { FiLogOut } from "react-icons/fi";
+import { toast } from "react-toastify";
 function Sidebar() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +30,8 @@ function Sidebar() {
   // Mở modal profile
   const handleAvatarClick = () => {
     if (!user) {
-      alert("Chưa đăng nhập");
+      // alert("Chưa đăng nhập");
+      toast.error("Chưa đăng nhập");
       return;
     }
     setIsModalOpen(true);
@@ -45,11 +47,14 @@ function Sidebar() {
       await loginApi.logout(token);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("userId");
-      alert("Đăng xuất thành công");
+      // alert("Đăng xuất thành công");
+      toast.success("Đăng xuất thành công");
       navigate("/");
     } catch (err) {
       console.error("Logout error:", err);
-      alert("Đăng xuất thất bại, thử lại");
+      // alert("Đăng xuất thất bại, thử lại");
+      toast.error("Đăng xuất thất bại");
+      console.log(err);
     }
   };
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import loginApi from "../api/loginApi";
 import "../css/login.css";
+import { toast } from "react-toastify";
 
 function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -50,12 +51,14 @@ function Login() {
 
     try {
       await loginApi.forgotPassword({ email });
-      alert("Mật khẩu mới đã được gửi về email");
+      // alert("Mật khẩu mới đã được gửi về email");
+      toast.success("Mật khẩu mới đã được gửi về email");
       setIsForgotPassword(false);
       setEmail("");
     } catch (err) {
       console.error(err);
-      alert("Không thể gửi lại mật khẩu");
+      // alert("Không thể gửi lại mật khẩu");
+      toast.error("Không thể gửi lại mật khẩu");
     }
   };
 
@@ -85,7 +88,8 @@ function Login() {
       localStorage.setItem("accessToken", accessToken);
       navigate("/chat");
     } catch (err) {
-      alert("Sai tài khoản hoặc mật khẩu");
+      // alert("Sai tài khoản hoặc mật khẩu");
+      toast.error("Sai tài khoản hoặc mật khẩu");
       console.log(err);
     }
   };
@@ -148,11 +152,13 @@ function Login() {
         password,
       });
 
-      alert("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
+      // alert("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
+      toast.success("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
       setIsVerifyMode(true);
     } catch (err) {
       console.error(err.message);
-      alert("Đăng ký thất bại");
+      // alert("Đăng ký thất bại");
+      toast.error("Dắng ký thất bại");
     }
   };
 
@@ -168,13 +174,15 @@ function Login() {
         otp,
       });
 
-      alert("Xác thực email thành công");
+      // alert("Xác thực email thành công");
+      toast.success("Xác thực email thành công");
       setIsVerifyMode(false);
       setIsRegister(false);
       resetForm();
     } catch (err) {
       console.error(err);
-      alert("OTP không đúng hoặc đã hết hạn");
+      // alert("OTP không đúng hoặc đã hết hạn");
+      toast.error("OTP không đúng hoặc đã hết hạn");
     }
   };
 
@@ -182,10 +190,12 @@ function Login() {
   const handleResendOtp = async () => {
     try {
       await loginApi.resendOtp({ email });
-      alert("Đã gửi lại OTP về email");
+      // alert("Đã gửi lại OTP về email");
+      toast.success("Đã gửi lại OTP về email");
     } catch (err) {
       console.error(err);
-      alert("Gửi lại OTP thất bại");
+      // alert("Gửi lại OTP thất bại");
+      toast.error("Gửi lại OTP thất bại");
     }
   };
 
@@ -205,10 +215,10 @@ function Login() {
           {isForgotPassword
             ? "Lấy lại mật khẩu"
             : isVerifyMode
-            ? "Xác thực email"
-            : isRegister
-            ? "Đăng ký tài khoản"
-            : "Đăng nhập với mật khẩu"}
+              ? "Xác thực email"
+              : isRegister
+                ? "Đăng ký tài khoản"
+                : "Đăng nhập với mật khẩu"}
         </h3>
 
         {isForgotPassword ? (
@@ -354,9 +364,7 @@ function Login() {
                     </a>
                   </span>
                 </div>
-                {errors.policy && (
-                  <p className="error-text">{errors.policy}</p>
-                )}
+                {errors.policy && <p className="error-text">{errors.policy}</p>}
               </>
             )}
 
