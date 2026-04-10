@@ -1,8 +1,15 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import "../css/profileModel.css";
+import { toast } from "react-toastify";
 
-function ProfileModal({ user, isOpen, onClose, onChangePassword, onUpdateInfo }) {
+function ProfileModal({
+  user,
+  isOpen,
+  onClose,
+  onChangePassword,
+  onUpdateInfo,
+}) {
   const fileRef = useRef();
   const [avatar, setAvatar] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -62,7 +69,7 @@ function ProfileModal({ user, isOpen, onClose, onChangePassword, onUpdateInfo })
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       // backend trả về user đã update avatarUrl
@@ -71,10 +78,12 @@ function ProfileModal({ user, isOpen, onClose, onChangePassword, onUpdateInfo })
       // Cập nhật user state ngoài modal (nếu muốn)
       if (onUpdateInfo) onUpdateInfo(res.data.result);
 
-      alert("Cập nhật avatar thành công");
+      // alert("Cập nhật avatar thành công");
+      toast.success("Cập nhật avatar thành công");
     } catch (err) {
       console.error("Upload avatar error:", err);
-      alert("Upload avatar thất bại");
+      // alert("Upload avatar thất bại");
+      toast.error("Upload avatar thất bại");
     } finally {
       setLoading(false);
     }
@@ -132,7 +141,10 @@ function ProfileModal({ user, isOpen, onClose, onChangePassword, onUpdateInfo })
             <button className="btn-change-password" onClick={onChangePassword}>
               Đổi mật khẩu
             </button>
-            <button className="btn-update-info" onClick={() => onUpdateInfo && onUpdateInfo(user)}>
+            <button
+              className="btn-update-info"
+              onClick={() => onUpdateInfo && onUpdateInfo(user)}
+            >
               Cập nhật thông tin
             </button>
           </div>
