@@ -59,3 +59,25 @@
 .logout-button:hover {
   transform: scale(1.1);
 }
+
+.sidebar-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: 0.2s;
+}
+
+.sidebar-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sidebar-icon.active {
+  background: rgba(255, 255, 255, 0.25);
+}
