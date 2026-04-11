@@ -7,6 +7,8 @@ body {
 .chat-container {
   display: flex;
   height: 100vh;
+  overflow: hidden;
+  padding-top:10px ;
 }
 
 /* ===== SIDEBAR ===== */
@@ -18,6 +20,7 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 12px 0;
+  height: 100%;
 }
 
 .avatar {
@@ -58,6 +61,7 @@ body {
   border-right: 1px solid #eee;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 /* SEARCH */
@@ -130,11 +134,12 @@ body {
 /* ===== MAIN ===== */
 .chat-main {
   flex: 1;
-  background: #f5f7fb;
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
+  height: 100vh;
+  background: #f5f7fb;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-main h2 {
@@ -144,4 +149,21 @@ body {
 
 .chat-main p {
   color: #666;
+}
+.avatar-small {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: bold;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }

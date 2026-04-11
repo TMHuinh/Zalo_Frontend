@@ -9,7 +9,8 @@ import { FiLogOut } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { FaCommentDots, FaAddressBook } from "react-icons/fa";
 
-function Sidebar({ tab, setTab }) { // ✅ NHẬN PROPS
+function Sidebar({ tab, setTab }) {
+  // ✅ NHẬN PROPS
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -21,7 +22,7 @@ function Sidebar({ tab, setTab }) { // ✅ NHẬN PROPS
       if (!userId) return;
       try {
         const res = await userApi.getById(userId);
-        setUser(res.data.result.result);
+        setUser(res.data.result);
       } catch (err) {
         console.error(err);
       }
