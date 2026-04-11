@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import PrivateRoute from "./components/PrivateRoute";
-import Profile from "./pages/Profile";
+// import Profile from "./pages/Profile";
 import ChangePassword from "./components/ChangePassword";
 import Policy from "./pages/Policy";
 import { ToastContainer } from "react-toastify";
