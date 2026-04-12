@@ -9,29 +9,22 @@ function ChatMain({ currentUserId, conversation }) {
   const [input, setInput] = useState("");
   const [files, setFiles] = useState([]);
   const [preview, setPreview] = useState([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const bottomRef = useRef(null);
 
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [menuMessageId, setMenuMessageId] = useState(null);
+
+  const bottomRef = useRef(null);
   const conversationId = conversation?._id;
 
   // =========================
-  // AUTO SCROLL
+  // SCROLL
   // =========================
-  const scrollToBottom = () => {
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  useEffect(() => {
-    if (conversation?._id && setIsTyping) {
-      setIsTyping(true);
-    }
-  }, [conversation]);
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages]);
 
   // =========================
-  // LOAD MESSAGE
+  // LOAD MESSAGES
   // =========================
   useEffect(() => {
     const fetchMessages = async () => {
@@ -41,7 +34,7 @@ function ChatMain({ currentUserId, conversation }) {
         const res = await messageApi.getMessages(conversationId);
         setMessages(res.data.result.data.reverse());
       } catch (err) {
-        console.log("Load messages error:", err);
+        console.log(err);
       }
     };
 
@@ -49,24 +42,22 @@ function ChatMain({ currentUserId, conversation }) {
   }, [conversationId]);
 
   // =========================
-  // RECEIVE MESSAGE (REALTIME)
+  // SOCKET RECEIVE
   // =========================
   useEffect(() => {
     const handleReceive = async () => {
       if (!conversationId) return;
 
       try {
-        // chỉ lấy message mới nhất
         const res = await messageApi.getMessages(conversationId, 1, 1);
         const latest = res.data.result.data[0];
 
         setMessages((prev) => {
-          // tránh duplicate
           if (prev.find((m) => m._id === latest._id)) return prev;
           return [...prev, latest];
         });
       } catch (err) {
-        console.log("Reload message error:", err);
+        console.log(err);
       }
     };
 
@@ -76,14 +67,12 @@ function ChatMain({ currentUserId, conversation }) {
   }, [conversationId]);
 
   // =========================
-  // SELECT FILE
+  // FILE HANDLER
   // =========================
   const handleSelectFiles = (e) => {
     const selected = Array.from(e.target.files);
     setFiles(selected);
-
-    const previewUrls = selected.map((file) => URL.createObjectURL(file));
-    setPreview(previewUrls);
+    setPreview(selected.map((f) => URL.createObjectURL(f)));
   };
 
   // =========================
@@ -97,18 +86,14 @@ function ChatMain({ currentUserId, conversation }) {
     formData.append("senderId", currentUserId);
     formData.append("content", input);
 
-    files.forEach((file) => {
-      formData.append("files", file);
-    });
+    files.forEach((file) => formData.append("files", file));
 
     try {
       const res = await messageApi.sendMessage(formData);
-      const savedMessage = res.data.result;
+      const saved = res.data.result;
 
-      // 👉 HIỂN THỊ NGAY (KHÔNG CHỜ SOCKET)
-      setMessages((prev) => [...prev, savedMessage]);
+      setMessages((prev) => [...prev, saved]);
 
-      // 🔥 SOCKET trigger bên kia reload
       const otherUser = conversation.members.find(
         (m) => m.userId._id !== currentUserId,
       );
@@ -123,13 +108,115 @@ function ChatMain({ currentUserId, conversation }) {
       setFiles([]);
       setPreview([]);
     } catch (err) {
-      console.log("Send message error:", err);
+      console.log(err);
     }
   };
 
   // =========================
-  // UI
+  // ACTION REVOKE / DELETE
   // =========================
+  const handleAction = async (msg, type) => {
+    const actionText = type === "revoke" ? "thu hồi" : "xoá";
+
+    const ok = window.confirm(
+      `Bạn có chắc muốn ${actionText} tin nhắn này không?`,
+    );
+
+    if (!ok) return;
+
+    try {
+      let res;
+
+      if (type === "revoke") {
+        res = await messageApi.revokeMessage(msg._id);
+      } else {
+        res = await messageApi.deleteMessage(msg._id);
+      }
+
+      const updated = res.data.result;
+
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updated._id ? updated : m)),
+      );
+
+      setMenuMessageId(null);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+  // ===========
+  // click đóng menu
+  // ========
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setMenuMessageId(null);
+    };
+
+    document.addEventListener("click", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+  useEffect(() => {
+    if (!conversationId) return;
+
+    socket.emit("join_conversation", conversationId);
+
+    return () => {
+      socket.emit("leave_conversation", conversationId);
+    };
+  }, [conversationId]);
+
+  useEffect(() => {
+    const handleMessageUpdated = (updatedMsg) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)),
+      );
+    };
+
+    socket.on("message_updated", handleMessageUpdated);
+
+    return () => {
+      socket.off("message_updated", handleMessageUpdated);
+    };
+  }, []);
+
+  // =========================
+  // RENDER MESSAGE
+  // =========================
+  const renderMessage = (msg) => {
+    if (msg.isDeleted) {
+      return <i>🗑 Tin nhắn đã bị xoá</i>;
+    }
+
+    if (msg.isRecalled) {
+      return <i style={{ opacity: 0.6 }}>🚫 Tin nhắn đã được thu hồi</i>;
+    }
+
+    return (
+      <>
+        {msg.content && <div>{msg.content}</div>}
+
+        {msg.attachments?.map((file, i) => {
+          if (file.type === "image") {
+            return <img key={i} src={file.url} alt="" className="chat-image" />;
+          }
+
+          return (
+            <div
+              key={i}
+              className="file-box"
+              onClick={() => window.open(file.url, "_blank")}
+            >
+              📄 {file.fileName}
+            </div>
+          );
+        })}
+      </>
+    );
+  };
+
   const otherUser = conversation?.members?.find(
     (m) => m.userId._id !== currentUserId,
   );
@@ -142,15 +229,11 @@ function ChatMain({ currentUserId, conversation }) {
           <div className="chat-header-info">
             <div className="avatar">
               {otherUser.userId.avatarUrl ? (
-                <img
-                  src={otherUser.userId.avatarUrl}
-                  alt={otherUser.userId.fullName}
-                />
+                <img src={otherUser.userId.avatarUrl} />
               ) : (
                 <span>{otherUser.userId.fullName?.charAt(0)}</span>
               )}
             </div>
-
             <div className="name">{otherUser.userId.fullName}</div>
           </div>
         ) : (
@@ -170,40 +253,42 @@ function ChatMain({ currentUserId, conversation }) {
             <div
               key={msg._id || index}
               className={`chat-bubble ${isMe ? "me" : "other"}`}
+              onMouseEnter={() => setHoveredMessageId(msg._id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
             >
-              {/* TEXT */}
-              {msg.content && <div>{msg.content}</div>}
+              {/* 3 DOT */}
+              {isMe && hoveredMessageId === msg._id && (
+                <div
+                  className="msg-dots"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuMessageId(
+                      menuMessageId === msg._id ? null : msg._id,
+                    );
+                  }}
+                >
+                  ⋯
+                </div>
+              )}
 
-              {/* FILE */}
-              {msg.attachments?.map((file, i) => {
-                // 🖼️ IMAGE
-                if (file.type === "image") {
-                  return (
-                    <img key={i} src={file.url} alt="" className="chat-image" />
-                  );
-                }
+              {/* MENU */}
+              {menuMessageId === msg._id && isMe && (
+                <div className="msg-menu">
+                  <button onClick={() => handleAction(msg, "revoke")}>
+                    Thu hồi
+                  </button>
+                  <button onClick={() => handleAction(msg, "delete")}>
+                    Xoá
+                  </button>
+                </div>
+              )}
 
-                // 📄 FILE
-                return (
-                  <div
-                    key={i}
-                    className="file-box"
-                    onClick={() => window.open(file.url, "_blank")}
-                  >
-                    <div className="file-icon">📄</div>
-
-                    <div className="file-info">
-                      <div className="file-name">{file.fileName || "File"}</div>
-                      <div className="file-action">Nhấn để tải</div>
-                    </div>
-                  </div>
-                );
-              })}
+              {renderMessage(msg)}
             </div>
           );
         })}
 
-        <div ref={bottomRef}></div>
+        <div ref={bottomRef} />
       </div>
 
       {/* PREVIEW */}
@@ -229,13 +314,7 @@ function ChatMain({ currentUserId, conversation }) {
           <textarea
             className="chat-input"
             value={input}
-            onFocus={() => setIsTyping(true)}
-            onBlur={() => setIsTyping(false)}
-            onChange={(e) => {
-              setInput(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = e.target.scrollHeight + "px";
-            }}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
