@@ -8,12 +8,14 @@ import "../css/sidebar.css";
 import { FiLogOut } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { FaCommentDots, FaAddressBook } from "react-icons/fa";
+import useNotificationStore from "../store/notificationStore";
 
 function Sidebar({ tab, setTab }) {
   // ✅ NHẬN PROPS
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const { hasNewRequest } = useNotificationStore();
 
   // Lấy thông tin user khi Sidebar load
   useEffect(() => {
@@ -85,8 +87,23 @@ function Sidebar({ tab, setTab }) {
       <div
         className={`sidebar-icon ${tab === "contacts" ? "active" : ""}`}
         onClick={() => setTab("contacts")}
+        style={{ position: "relative" }}
       >
         <FaAddressBook />
+
+        {hasNewRequest && (
+          <span
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              width: 10,
+              height: 10,
+              background: "red",
+              borderRadius: "50%",
+            }}
+          />
+        )}
       </div>
 
       {/* Logout */}

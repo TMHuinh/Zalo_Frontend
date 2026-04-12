@@ -2,198 +2,290 @@ import { useState } from "react";
 import friendshipApi from "../api/friendshipApi";
 import userApi from "../api/userApi";
 import { toast } from "react-toastify";
+import socket from "../socket/socket"; // 🔥 THÊM
 
-function AddFriendModal({ onClose }) {
-    const [phone, setPhone] = useState("");
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [searching, setSearching] = useState(false);
+function AddFriendModal({ onClose, currentUserId }) {
+  const [phone, setPhone] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
 
-    const handleSearch = async () => {
-        if (!phone) return toast.warning("Nhập số điện thoại");
+  // ======================
+  // SEARCH USER
+  // ======================
+  const handleSearch = async () => {
+    if (!phone.trim()) return toast.warning("Nhập số điện thoại");
 
-        try {
-            setSearching(true);
-            setUser(null);
+    try {
+      setSearching(true);
+      setResult(null);
 
-            const res = await userApi.searchByPhone(phone);
-            setUser(res.data.data);
+      const res = await userApi.searchByPhone(phone);
 
-        } catch (err) {
-            const message =
-                err.response?.data?.message || "Không tìm thấy người dùng";
+      setResult(res.data.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không tìm thấy user");
+      setResult(null);
+    } finally {
+      setSearching(false);
+    }
+  };
 
-            toast.error(message);
-            setUser(null);
+  // ======================
+  // ADD FRIEND
+  // ======================
+  const handleAddFriend = async (id) => {
+    try {
+      setLoading(true);
 
-        } finally {
-            setSearching(false);
-        }
-    };
+      const res = await friendshipApi.sendRequest(id);
 
-    const handleAddFriend = async (id) => {
-        try {
-            setLoading(true);
+      toast.success(res.data.message || "Đã gửi lời mời");
 
-            const res = await friendshipApi.sendRequest(id);
+      // 🔥 REALTIME EMIT
+      socket.emit("send_friend_request", {
+        senderId: currentUserId,
+        receiverId: id,
+      });
 
-            toast.success(res.data.message || "Đã gửi lời mời kết bạn");
+      // update UI
+      setResult((prev) => ({
+        ...prev,
+        relationship: "pending",
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gửi lời mời thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            onClose();
+  const foundUser = result?.user;
+  const relationship = result?.relationship;
 
-        } catch (err) {
-            const message =
-                err.response?.data?.message || "Không thể gửi lời mời";
+  return (
+    <>
+      {/* BACKDROP */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+        }}
+      >
+        {/* MODAL */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: 450,
+            borderRadius: 20,
+            overflow: "hidden",
+            background: "#fff",
+            boxShadow: "0 25px 70px rgba(0,0,0,0.25)",
+          }}
+        >
+          {/* HEADER */}
+          <div
+            style={{
+              padding: 16,
+              background: "linear-gradient(135deg,#0068ff,#00c6ff)",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 16,
+            }}
+          >
+            👥 Tìm kiếm bạn bè
+          </div>
 
-            toast.error(message);
+          {/* BODY */}
+          <div style={{ padding: 16 }}>
+            {/* INPUT */}
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Nhập số điện thoại"
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #ddd",
+                outline: "none",
+                fontSize: 14,
+              }}
+            />
 
-            console.log("Friend error:", err.response?.data || err.message);
+            <button
+              onClick={handleSearch}
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 12,
+                border: "none",
+                background: "#0068ff",
+                color: "#fff",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {searching ? "Đang tìm..." : "Tìm kiếm"}
+            </button>
 
-        } finally {
-            setLoading(false);
-        }
-    };
+            {/* RESULT */}
+            {foundUser && (
+              <div
+                style={{
+                  marginTop: 18,
+                  padding: 14,
+                  borderRadius: 16,
+                  background: "#f9fafb",
+                  border: "1px solid #eee",
+                }}
+              >
+                <div style={{ display: "flex", gap: 12 }}>
+                  <img
+                    src={
+                      foundUser.avatarUrl ||
+                      `https://ui-avatars.com/api/?name=${foundUser.fullName}`
+                    }
+                    style={{
+                      width: 58,
+                      height: 58,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                    }}
+                  />
 
-    return (
-        <div style={styles.overlay}>
-            <div style={styles.modal}>
-                <h3 style={styles.title}>Tìm bạn bè</h3>
-
-                {/* INPUT */}
-                <input
-                    placeholder="Nhập số điện thoại"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    style={styles.input}
-                />
-
-                <button onClick={handleSearch} style={styles.searchBtn}>
-                    {searching ? "Đang tìm..." : "Tìm kiếm"}
-                </button>
-
-                {/* RESULT */}
-                {user && (
-                    <div style={styles.resultCard}>
-                        <img
-                            src={
-                                user.avatar ||
-                                "https://ui-avatars.com/api/?name=" +
-                                encodeURIComponent(user.fullName || user.name)
-                            }
-                            alt="avatar"
-                            style={styles.avatar}
-                        />
-
-                        <div style={{ flex: 1 }}>
-                            <p style={styles.name}>
-                                {user.fullName || user.name}
-                            </p>
-                            <p style={styles.phone}>{user.phone}</p>
-
-                            <button
-                                onClick={() => handleAddFriend(user._id)}
-                                disabled={loading}
-                                style={styles.addBtn}
-                            >
-                                {loading ? "Đang gửi..." : "Kết bạn"}
-                            </button>
-                        </div>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>
+                      {foundUser.fullName}
                     </div>
-                )}
 
-                <button onClick={onClose} style={styles.closeBtn}>
-                    Đóng
-                </button>
-            </div>
+                    <div style={{ fontSize: 13, color: "#666" }}>
+                      {foundUser.phone}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 12,
+                        marginTop: 4,
+                        color: foundUser.isOnline ? "green" : "#888",
+                      }}
+                    >
+                      {foundUser.isOnline ? "● Online" : "● Offline"}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 13,
+                    color: "#444",
+                    lineHeight: "22px",
+                  }}
+                >
+                  <div>
+                    <b>Email:</b> {foundUser.email || "Chưa cập nhật"}
+                  </div>
+                  <div>
+                    <b>Giới tính:</b> {foundUser.gender || "Chưa cập nhật"}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  {relationship === "self" ? (
+                    <button
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#ff9800",
+                        color: "#fff",
+                        fontWeight: 600,
+                        cursor: "not-allowed",
+                      }}
+                      disabled
+                    >
+                      Cập nhật
+                    </button>
+                  ) : relationship === "accepted" ? (
+                    <button
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#3b82f6",
+                        color: "#fff",
+                        fontWeight: 600,
+                      }}
+                    >
+                      💬 Nhắn tin
+                    </button>
+                  ) : relationship === "pending" ? (
+                    <button
+                      disabled
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#f59e0b",
+                        color: "#fff",
+                        fontWeight: 600,
+                        cursor: "not-allowed",
+                      }}
+                    >
+                      ⏳ Đã gửi lời mời
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAddFriend(foundUser._id)}
+                      disabled={loading}
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#22c55e",
+                        color: "#fff",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {loading ? "Đang gửi..." : "➕ Kết bạn"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{
+                width: "100%",
+                marginTop: 14,
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #ddd",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Đóng
+            </button>
+          </div>
         </div>
-    );
+      </div>
+    </>
+  );
 }
-
-const styles = {
-    overlay: {
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modal: {
-        width: 420,
-        background: "#fff",
-        borderRadius: 14,
-        padding: 20,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-        fontFamily: "Arial",
-    },
-    title: {
-        marginBottom: 12,
-        fontSize: 16,
-        fontWeight: 600,
-    },
-    input: {
-        width: "100%",
-        padding: 10,
-        borderRadius: 10,
-        border: "1px solid #ddd",
-        outline: "none",
-    },
-    searchBtn: {
-        marginTop: 10,
-        width: "100%",
-        padding: 10,
-        background: "#0b74e5",
-        color: "#fff",
-        border: "none",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontWeight: 500,
-    },
-    resultCard: {
-        marginTop: 15,
-        display: "flex",
-        gap: 12,
-        padding: 12,
-        border: "1px solid #eee",
-        borderRadius: 12,
-        alignItems: "center",
-        background: "#fafafa",
-    },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: "50%",
-        objectFit: "cover",
-    },
-    name: {
-        margin: 0,
-        fontWeight: 600,
-        fontSize: 14,
-    },
-    phone: {
-        margin: "4px 0",
-        color: "#666",
-        fontSize: 13,
-    },
-    addBtn: {
-        marginTop: 6,
-        background: "#22c55e",
-        color: "#fff",
-        border: "none",
-        padding: "6px 10px",
-        borderRadius: 8,
-        cursor: "pointer",
-        fontSize: 12,
-    },
-    closeBtn: {
-        marginTop: 12,
-        width: "100%",
-        padding: 10,
-        borderRadius: 10,
-        border: "1px solid #ddd",
-        background: "#fff",
-        cursor: "pointer",
-    },
-};
 
 export default AddFriendModal;

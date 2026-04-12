@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
-import "../css/profileModel.css";
 import { toast } from "react-toastify";
 
 function ProfileModal({
@@ -13,77 +12,50 @@ function ProfileModal({
   const fileRef = useRef();
   const [avatar, setAvatar] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [actionOpen, setActionOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Cập nhật avatar khi user thay đổi
   useEffect(() => {
-    if (user?.avatarUrl) setAvatar(user.avatarUrl);
-    else setAvatar("");
+    setAvatar(user?.avatarUrl || "");
   }, [user]);
 
   if (!isOpen || !user) return null;
 
-  // Click avatar để xem full
-  const handlePreviewAvatar = () => {
-    if (avatar) setPreviewOpen(true);
-  };
-
-  // Click icon camera để mở action modal
-  const handleCameraClick = (e) => {
-    e.stopPropagation();
-    setActionOpen(true);
-  };
-
-  // Chọn ảnh từ thiết bị
-  const handleChooseFromDevice = () => {
-    setActionOpen(false);
-    fileRef.current.click();
-  };
-
-  // Xem ảnh
-  const handleViewAvatar = () => {
-    setActionOpen(false);
-    if (avatar) setPreviewOpen(true);
-  };
-
-  // Upload avatar lên backend + lưu DB
-  const handleChangeAvatar = async (e) => {
+  const uploadAvatar = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const preview = URL.createObjectURL(file);
-    setAvatar(preview); // hiển thị tạm thời
+    setAvatar(URL.createObjectURL(file));
 
     const formData = new FormData();
     formData.append("avatar", file);
 
     try {
       setLoading(true);
-      const token = localStorage.getItem("accessToken"); // token đăng nhập
+
+      const token = localStorage.getItem("accessToken");
+
       const res = await axios.post(
         "http://localhost:5000/api/user/upload-avatar",
         formData,
         {
           headers: {
-            "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
-      // backend trả về user đã update avatarUrl
-      setAvatar(res.data.result.avatarUrl);
+      const newAvatar = res.data.result.avatarUrl;
 
-      // Cập nhật user state ngoài modal (nếu muốn)
-      if (onUpdateInfo) onUpdateInfo(res.data.result);
+      setAvatar(newAvatar);
 
-      // alert("Cập nhật avatar thành công");
+      onUpdateInfo?.({
+        ...user,
+        avatarUrl: newAvatar,
+      });
+
       toast.success("Cập nhật avatar thành công");
     } catch (err) {
-      console.error("Upload avatar error:", err);
-      // alert("Upload avatar thất bại");
-      toast.error("Upload avatar thất bại");
+      toast.error("Upload thất bại");
     } finally {
       setLoading(false);
     }
@@ -91,88 +63,241 @@ function ProfileModal({
 
   return (
     <>
-      {/* Profile modal */}
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <button className="close-btn" onClick={onClose}>
-            &times;
-          </button>
-
-          {/* Header background */}
+      {/* BACKDROP */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+        }}
+      >
+        {/* CARD */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: 380,
+            borderRadius: 22,
+            overflow: "hidden",
+            background: "#fff",
+            boxShadow: "0 25px 70px rgba(0,0,0,0.25)",
+            animation: "pop 0.25s ease",
+          }}
+        >
+          {/* HEADER */}
           <div
-            className="modal-header-bg"
-            style={{ backgroundImage: "url('/images/profile-bg.jpg')" }}
+            style={{
+              height: 120,
+              background: "linear-gradient(135deg,#0068ff,#00c6ff)",
+            }}
           />
 
-          {/* Avatar */}
-          <div className="avatar-wrapper" onClick={handlePreviewAvatar}>
-            {avatar ? (
-              <img src={avatar} alt="avatar" className="modal-avatar-img" />
-            ) : (
-              <div className="modal-avatar">{user.fullName.charAt(0)}</div>
-            )}
+          {/* AVATAR */}
+          <div style={{ textAlign: "center", marginTop: -50 }}>
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <div
+                style={{
+                  width: 105,
+                  height: 105,
+                  borderRadius: "50%",
+                  padding: 3,
+                  background: "#fff",
+                }}
+              >
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    onClick={() => setPreviewOpen(true)}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      cursor: "pointer",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      background: "#0068ff",
+                      color: "#fff",
+                      fontSize: 38,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {user.fullName?.charAt(0)}
+                  </div>
+                )}
+              </div>
 
-            {/* Camera icon */}
-            <div className="camera-icon" onClick={handleCameraClick}>
-              📷
+              {/* CAMERA */}
+              <div
+                onClick={() => fileRef.current.click()}
+                style={{
+                  position: "absolute",
+                  bottom: 5,
+                  right: 5,
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.2)",
+                  cursor: "pointer",
+                }}
+              >
+                📷
+              </div>
             </div>
           </div>
 
-          {/* Hidden input */}
           <input
             type="file"
-            ref={fileRef}
             hidden
+            ref={fileRef}
             accept="image/*"
-            onChange={handleChangeAvatar}
+            onChange={uploadAvatar}
           />
 
-          {/* User info */}
-          <h2 className="modal-name">{user.fullName}</h2>
-          <div className="modal-info">
-            <p>📱 Điện thoại: {user.phone || "Chưa cập nhật"}</p>
-            <p>📧 Email: {user.email || "Chưa cập nhật"}</p>
-            <p>👤 Giới tính: {user.gender || "Chưa cập nhật"}</p>
-            <p>🟢 Trạng thái: {user.isOnline ? "Online" : "Offline"}</p>
+          {/* NAME + STATUS */}
+          <div style={{ textAlign: "center", marginTop: 10 }}>
+            <h4 style={{ margin: 0 }}>{user.fullName}</h4>
+
+            <span
+              style={{
+                fontSize: 12,
+                padding: "4px 10px",
+                borderRadius: 20,
+                background: user.isOnline ? "#e7f8ee" : "#eee",
+                color: user.isOnline ? "#1a7f37" : "#777",
+                display: "inline-block",
+                marginTop: 6,
+              }}
+            >
+              {user.isOnline ? "Đang hoạt động" : "Offline"}
+            </span>
           </div>
 
-          {/* Action buttons */}
-          <div className="modal-actions">
-            <button className="btn-change-password" onClick={onChangePassword}>
+          {/* INFO */}
+          <div style={{ padding: "15px 20px", fontSize: 14 }}>
+            <Row label="Số điện thoại" value={user.phone} />
+            <Row label="Email" value={user.email} />
+            <Row label="Giới tính" value={user.gender} />
+          </div>
+
+          {/* BUTTONS */}
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              padding: 15,
+            }}
+          >
+            <button
+              onClick={onChangePassword}
+              style={{
+                flex: 1,
+                border: "1px solid #0068ff",
+                color: "#0068ff",
+                borderRadius: 10,
+                padding: 8,
+                background: "#fff",
+              }}
+            >
               Đổi mật khẩu
             </button>
+
             <button
-              className="btn-update-info"
-              onClick={() => onUpdateInfo && onUpdateInfo(user)}
+              onClick={() => onUpdateInfo?.(user)}
+              style={{
+                flex: 1,
+                background: "linear-gradient(135deg,#0068ff,#00c6ff)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                padding: 8,
+              }}
             >
-              Cập nhật thông tin
+              Cập nhật
             </button>
           </div>
 
-          {loading && <p style={{ textAlign: "center" }}>Đang upload...</p>}
+          {loading && (
+            <div style={{ textAlign: "center", paddingBottom: 10 }}>
+              <div className="spinner-border text-primary" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Preview modal */}
+      {/* PREVIEW */}
       {previewOpen && (
-        <div className="preview-overlay" onClick={() => setPreviewOpen(false)}>
-          <img src={avatar} alt="preview" className="preview-image" />
+        <div
+          onClick={() => setPreviewOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 10000,
+          }}
+        >
+          <img
+            src={avatar}
+            style={{
+              maxWidth: "90%",
+              borderRadius: 12,
+            }}
+          />
         </div>
       )}
 
-      {/* Action modal */}
-      {actionOpen && (
-        <div className="action-overlay" onClick={() => setActionOpen(false)}>
-          <div className="action-modal" onClick={(e) => e.stopPropagation()}>
-            <button onClick={handleViewAvatar}>👁 Xem ảnh</button>
-            <button onClick={handleChooseFromDevice}>📷 Chọn ảnh</button>
-            <button className="cancel-btn" onClick={() => setActionOpen(false)}>
-              ❌ Hủy
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ANIMATION */}
+      <style>
+        {`
+          @keyframes pop {
+            from { transform: scale(0.9); opacity: 0 }
+            to { transform: scale(1); opacity: 1 }
+          }
+        `}
+      </style>
     </>
+  );
+}
+
+/* ================= ROW COMPONENT (ZALO STYLE ALIGN) ================= */
+function Row({ label, value }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        marginBottom: 10,
+        alignItems: "center",
+      }}
+    >
+      <div style={{ width: 120, color: "#666" }}>{label}</div>
+
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <span style={{ marginRight: 6 }}>:</span>
+        <span style={{ fontWeight: 600, color: "#222" }}>
+          {value || "Chưa cập nhật"}
+        </span>
+      </div>
+    </div>
   );
 }
 
