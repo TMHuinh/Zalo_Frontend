@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import loginApi from "../api/loginApi";
 import "../css/login.css";
 import { toast } from "react-toastify";
+import { jwtDecode } from "jwt-decode"; // 🔥 THÊM
+import socket from "../socket/socket";
 
 function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -15,7 +17,6 @@ function Login() {
   const [otp, setOtp] = useState("");
   const [phone, setPhone] = useState("");
 
-  // ✅ NEW
   const [agreePolicy, setAgreePolicy] = useState(false);
 
   const [error, setError] = useState("");
@@ -26,7 +27,7 @@ function Login() {
     email: "",
     password: "",
     otp: "",
-    policy: "", // ✅ NEW
+    policy: "",
     phone: "",
   });
 
@@ -53,13 +54,11 @@ function Login() {
 
     try {
       await loginApi.forgotPassword({ email });
-      // alert("Mật khẩu mới đã được gửi về email");
       toast.success("Mật khẩu mới đã được gửi về email");
       setIsForgotPassword(false);
       setEmail("");
     } catch (err) {
       console.error(err);
-      // alert("Không thể gửi lại mật khẩu");
       toast.error("Không thể gửi lại mật khẩu");
     }
   };
@@ -71,7 +70,7 @@ function Login() {
     setPhone("");
     setConfirmPassword("");
     setOtp("");
-    setAgreePolicy(false); // ✅ NEW
+    setAgreePolicy(false);
     setError("");
     setErrors({
       fullName: "",
@@ -83,21 +82,30 @@ function Login() {
     });
   };
 
-  // LOGIN
+  // 🔥 LOGIN (CHỈ THÊM DECODE)
   const handleLogin = async () => {
     try {
       const res = await loginApi.login({ email, password });
       const { accessToken } = res.data.result;
 
+      const decoded = jwtDecode(accessToken);
+
+      const userId =
+        decoded.userId || decoded.id || decoded._id || decoded.sub;
+
       localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("userId", userId);
+
+      // 🔥 QUAN TRỌNG NHẤT: JOIN NGAY
+      socket.emit("join", userId);
+      console.log("🔥 JOIN AFTER LOGIN:", userId);
+
       navigate("/chat");
     } catch (err) {
-      // alert("Sai tài khoản hoặc mật khẩu");
       toast.error("Sai tài khoản hoặc mật khẩu");
       console.log(err);
     }
   };
-
   const validateRegisterForm = () => {
     const newErrors = {};
 
@@ -121,7 +129,6 @@ function Login() {
       newErrors.phone = "Số điện thoại không hợp lệ";
     }
 
-    // ✅ NEW
     if (!agreePolicy) {
       newErrors.policy = "Bạn phải đồng ý với điều khoản";
     }
@@ -143,7 +150,6 @@ function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // REGISTER -> gửi OTP
   const handleRegister = async () => {
     setError("");
 
@@ -162,17 +168,14 @@ function Login() {
         phone,
       });
 
-      // alert("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
       toast.success("Đăng ký thành công. Vui lòng nhập OTP đã gửi về email.");
       setIsVerifyMode(true);
     } catch (err) {
       console.error(err.message);
-      // alert("Đăng ký thất bại");
-      toast.error("Dắng ký thất bại");
+      toast.error("Đăng ký thất bại");
     }
   };
 
-  // VERIFY OTP
   const handleVerifyOtp = async () => {
     setError("");
 
@@ -184,27 +187,22 @@ function Login() {
         otp,
       });
 
-      // alert("Xác thực email thành công");
       toast.success("Xác thực email thành công");
       setIsVerifyMode(false);
       setIsRegister(false);
       resetForm();
     } catch (err) {
       console.error(err);
-      // alert("OTP không đúng hoặc đã hết hạn");
       toast.error("OTP không đúng hoặc đã hết hạn");
     }
   };
 
-  // GỬI LẠI OTP
   const handleResendOtp = async () => {
     try {
       await loginApi.resendOtp({ email });
-      // alert("Đã gửi lại OTP về email");
       toast.success("Đã gửi lại OTP về email");
     } catch (err) {
       console.error(err);
-      // alert("Gửi lại OTP thất bại");
       toast.error("Gửi lại OTP thất bại");
     }
   };
@@ -360,7 +358,6 @@ function Login() {
                 </div>
                 {error && <p className="error-text">{error}</p>}
 
-                {/* ✅ PHONE */}
                 <div className="input-group">
                   <input
                     type="text"
@@ -371,14 +368,12 @@ function Login() {
                 </div>
                 {errors.phone && <p className="error-text">{errors.phone}</p>}
 
-                {/* ✅ POLICY */}
                 <div className="policy">
                   <input
                     type="checkbox"
                     checked={agreePolicy}
                     onChange={(e) => setAgreePolicy(e.target.checked)}
                   />
-
                   <span>
                     Tôi đồng ý với{" "}
                     <a href="/policy" target="_blank">
@@ -392,7 +387,9 @@ function Login() {
 
             <button
               className="login-btn"
-              onClick={() => (isRegister ? handleRegister() : handleLogin())}
+              onClick={() =>
+                isRegister ? handleRegister() : handleLogin()
+              }
             >
               {isRegister ? "Đăng ký" : "Đăng nhập"}
             </button>

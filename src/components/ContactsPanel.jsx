@@ -1,143 +1,95 @@
-import { useEffect, useState } from "react";
-import friendshipApi from "../api/friendshipApi";
+import { useState } from "react";
+import { Form, InputGroup, Button } from "react-bootstrap";
+import useNotificationStore from "../store/notificationStore";
 import AddFriendModal from "../components/AddFriendModal";
-import { toast } from "react-toastify";
-import "../css/contactsPanel.css";
 
-function ContactsPanel() {
-  const [friends, setFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
+function ContactsPanel({ contactView, setContactView, onSearch }) {
   const [search, setSearch] = useState("");
   const [openModal, setOpenModal] = useState(false);
+  const { hasNewRequest } = useNotificationStore();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [friendsRes, pendingRes] = await Promise.all([
-          friendshipApi.getFriends(),
-          friendshipApi.getPending(),
-        ]);
-
-        const validFriends = (friendsRes.data.data || []).filter(
-          (f) => f.friend
-        );
-
-        setFriends(validFriends);
-        setRequests(pendingRes.data.data || []);
-      } catch (err) {
-        toast.error("Lỗi tải dữ liệu");
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const handleAccept = async (id) => {
-    try {
-      await friendshipApi.acceptRequest(id);
-
-      const accepted = requests.find((r) => r._id === id);
-
-      setRequests((prev) => prev.filter((r) => r._id !== id));
-      setFriends((prev) => [
-        ...prev,
-        {
-          _id: accepted._id,
-          friend: accepted.requesterId,
-        },
-      ]);
-
-      toast.success("Đã chấp nhận");
-    } catch {
-      toast.error("Lỗi");
-    }
+  const handleSearch = (value) => {
+    setSearch(value);
+    onSearch?.(value); // 🔥 truyền xuống Content
   };
 
-  const renderAvatar = (user) => {
-    if (user?.avatarUrl) {
-      return (
-        <img
-          src={
-            user.avatarUrl.startsWith("http")
-              ? user.avatarUrl
-              : `http://localhost:5000${user.avatarUrl}`
-          }
-          alt=""
-        />
-      );
-    }
-    return user?.fullName?.charAt(0) || "U";
-  };
-
-  // 🔥 FILTER GIỐNG CHATLIST
-  const filteredFriends = friends.filter((f) =>
-    f.friend.fullName.toLowerCase().includes(search.toLowerCase())
-  );
+  const items = [
+    { key: "friends", label: "Danh sách bạn bè", icon: "👥" },
+    { key: "requests", label: "Lời mời kết bạn", icon: "📩" },
+    { key: "sent", label: "Lời mời đã gửi", icon: "📤" },
+  ];
 
   return (
-    <div className="chat-list">
-      {/* SEARCH + BUTTON */}
-      <div className="search-box">
-        <input
-          type="text"
-          placeholder="Tìm bạn bè"
+    <div className="p-2" style={{ background: "#f5f7fb", height: "100%" }}>
+      {/* 🔍 SEARCH */}
+      <InputGroup className="mb-3">
+        <Form.Control
+          placeholder="🔍 Tìm kiếm bạn bè..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
+          style={{ borderRadius: "12px 0 0 12px" }}
         />
 
-        <button onClick={() => setOpenModal(true)}>
+        <Button
+          variant="primary"
+          onClick={() => setOpenModal(true)}
+          style={{ borderRadius: "0 12px 12px 0" }}
+        >
           + Bạn
-        </button>
-      </div>
+        </Button>
+      </InputGroup>
 
-      {/* REQUESTS (HIỆN TRÊN) */}
-      {requests.length > 0 && (
-        <div className="request-section">
-          <p className="section-title">Lời mời kết bạn</p>
+      {/* MENU */}
+      <div className="d-flex flex-column gap-2">
+        {items.map((item) => {
+          const isActive = contactView === item.key;
 
-          {requests.map((r) => (
-            <div key={r._id} className="chat-item">
-              <div className="avatar-small">
-                {renderAvatar(r.requesterId)}
-              </div>
+          return (
+            <div
+              key={item.key}
+              onClick={() => setContactView(item.key)}
+              style={{
+                cursor: "pointer",
+                padding: "12px",
+                borderRadius: 14,
+                background: isActive ? "#e7f1ff" : "#fff",
+                boxShadow: isActive
+                  ? "0 4px 12px rgba(0,0,0,0.08)"
+                  : "0 2px 6px rgba(0,0,0,0.05)",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div style={{ fontSize: 18 }}>{item.icon}</div>
 
-              <div className="info">
-                <p className="name">
-                  {r.requesterId?.fullName || "Unknown"}
-                </p>
+              <div
+                style={{
+                  fontWeight: 500,
+                  fontSize: 14,
+                  position: "relative",
+                }}
+              >
+                {item.label}
 
-                <button
-                  className="accept-btn"
-                  onClick={() => handleAccept(r._id)}
-                >
-                  Chấp nhận
-                </button>
+                {item.key === "requests" && hasNewRequest && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: -10,
+                      width: 8,
+                      height: 8,
+                      background: "red",
+                      borderRadius: "50%",
+                    }}
+                  />
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* FRIEND LIST */}
-      <div className="list">
-        {filteredFriends.length === 0 ? (
-          <p className="empty">Không có bạn</p>
-        ) : (
-          filteredFriends.map((f) => (
-            <div key={f._id} className="chat-item">
-              <div className="avatar-small">
-                {renderAvatar(f.friend)}
-              </div>
-
-              <div className="info">
-                <p className="name">{f.friend.fullName}</p>
-                <span className="last-msg">
-                  {f.friend.isOnline ? "Đang hoạt động" : "Offline"}
-                </span>
-              </div>
-            </div>
-          ))
-        )}
+          );
+        })}
       </div>
 
       {/* MODAL */}
