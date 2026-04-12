@@ -20,8 +20,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
     try {
       const res = await conversationApi.getByUserId();
 
-      // ✅ sort mới nhất lên đầu
-      const sorted = res.data.result.sort(
+      const sorted = (res.data.result || []).sort(
         (a, b) =>
           new Date(b.updatedAt || b.createdAt) -
           new Date(a.updatedAt || a.createdAt),
@@ -38,71 +37,70 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   }, []);
 
   // =========================
-  // RESET UNREAD khi click
+  // RESET UNREAD WHEN ACTIVE CHAT CHANGE
   // =========================
   useEffect(() => {
-    if (activeConversationId) {
-      setUnread((prev) => ({
-        ...prev,
-        [activeConversationId]: 0,
-      }));
-    }
+    if (!activeConversationId) return;
+
+    setUnread((prev) => ({
+      ...prev,
+      [activeConversationId]: 0,
+    }));
   }, [activeConversationId]);
 
   // =========================
-  // SOCKET REALTIME
+  // SOCKET
   // =========================
   useEffect(() => {
     const handleReceive = async (msg) => {
-      // 🔥 reload conversation
-      const res = await conversationApi.getByUserId();
-      const newConversations = res.data.result;
+      try {
+        const res = await conversationApi.getByUserId();
+        const sorted = (res.data.result || []).sort(
+          (a, b) =>
+            new Date(b.updatedAt || b.createdAt) -
+            new Date(a.updatedAt || a.createdAt),
+        );
 
-      // sort lại
-      const sorted = newConversations.sort(
-        (a, b) =>
-          new Date(b.updatedAt || b.createdAt) -
-          new Date(a.updatedAt || a.createdAt),
-      );
+        setConversations(sorted);
 
-      setConversations(sorted);
+        // safe find conversation
+        const targetConv = sorted.find((conv) =>
+          conv.members?.some((m) => m.userId?._id === msg.userId),
+        );
 
-      // 🔥 tìm đúng conversation
-      const targetConv = sorted.find((conv) =>
-        conv.members.some((m) => m.userId._id === msg.userId),
-      );
+        if (!targetConv) return;
 
-      if (!targetConv) return;
+        const isActive = targetConv._id === activeConversationId;
 
-      // ✅ nếu đang mở chat đó → không tăng unread
-      if (targetConv._id === activeConversationId) {
+        if (isActive) {
+          setUnread((prev) => ({
+            ...prev,
+            [targetConv._id]: 0,
+          }));
+          return;
+        }
+
         setUnread((prev) => ({
           ...prev,
-          [targetConv._id]: 0,
+          [targetConv._id]: (prev[targetConv._id] || 0) + 1,
         }));
-        return;
+      } catch (err) {
+        console.log("Socket handler error:", err);
       }
-
-      // ❌ chưa mở → tăng badge
-      setUnread((prev) => ({
-        ...prev,
-        [targetConv._id]: (prev[targetConv._id] || 0) + 1,
-      }));
     };
 
     socket.on("receive_message", handleReceive);
 
     return () => socket.off("receive_message", handleReceive);
-  }, [activeConversationId, currentUserId]);
+  }, [activeConversationId]);
 
   // =========================
-  // FILTER
+  // FILTER CONVERSATION
   // =========================
-  const filtered = conversations.filter((c) => {
-    const otherUser = c.members.find((m) => m.userId._id !== currentUserId);
+  const filtered = (conversations || []).filter((c) => {
+    const otherUser = c.members?.find((m) => m.userId?._id !== currentUserId);
 
     const name = otherUser?.userId?.fullName || "Unknown";
-
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -139,8 +137,8 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       {/* LIST */}
       <div className="list">
         {filtered.map((conv) => {
-          const otherUser = conv.members.find(
-            (m) => m.userId._id !== currentUserId,
+          const otherUser = conv.members?.find(
+            (m) => m.userId?._id !== currentUserId,
           );
 
           const user = otherUser?.userId;
@@ -152,7 +150,6 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                 activeConversationId === conv._id ? "active" : ""
               }`}
               onClick={() => {
-                // reset unread
                 setUnread((prev) => ({
                   ...prev,
                   [conv._id]: 0,
@@ -166,7 +163,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                 {user?.avatarUrl ? (
                   <img
                     src={user.avatarUrl}
-                    alt={user.fullName}
+                    alt={user?.fullName || "user"}
                     className="avatar-img"
                   />
                 ) : (
@@ -176,14 +173,14 @@ function ChatList({ onSelectConversation, activeConversationId }) {
 
               {/* INFO */}
               <div className="info">
-                <p className="name">{user?.fullName}</p>
+                <p className="name">{user?.fullName || "Unknown"}</p>
 
                 <span className="last-msg">
                   {conv.lastMessageId?.content || "Chưa có tin nhắn"}
                 </span>
               </div>
 
-              {/* 🔴 BADGE */}
+              {/* BADGE */}
               {unread[conv._id] > 0 && (
                 <div className="badge">
                   {unread[conv._id] > 9 ? "9+" : unread[conv._id]}

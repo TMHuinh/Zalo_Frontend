@@ -1,83 +1,108 @@
-
-
-/* Avatar */
-.avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  overflow: hidden;
-  cursor: pointer;
-  border: 2px solid white;
+/* Container chính của Sidebar */
+.sidebar {
+  width: 68px; /* Độ rộng tiêu chuẩn cho Sidebar icon */
+  height: 100vh;
+  background-color: #0068ff; /* Màu xanh thương hiệu chủ đạo */
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: white;
-  background-color: #6ca0f7;
-  font-size: 18px;
-  transition: transform 0.2s;
+  /* padding: 20px 0; */
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+/* Avatar phía trên cùng */
+.avatar {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 30px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  position: relative;
 }
 
 .avatar:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .sidebar-avatar-img {
   width: 100%;
   height: 100%;
+  border-radius: 50%;
   object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .sidebar-avatar-fallback {
   width: 100%;
   height: 100%;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: #0068ff;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background-color: #6ca0f7;
+  justify-content: center;
   font-weight: bold;
   font-size: 18px;
-  color: white;
 }
 
-/* Logout button */
-.logout-button {
-  margin-top: auto;
-  width: 50px;
-  height: 50px;
-  background-color: #fff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
-}
-
-.logout-button:hover {
-  transform: scale(1.1);
-}
-
+/* Các Icon điều hướng (Chat, Danh bạ) */
 .sidebar-icon {
-  width: 44px;
-  height: 44px;
+  width: 100%;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 18px;
-  border-radius: 10px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.7); /* Màu trắng mờ khi không active */
   cursor: pointer;
-  margin-top: 12px;
-  transition: 0.2s;
+  transition: all 0.3s ease;
+  position: relative;
 }
 
 .sidebar-icon:hover {
-  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Trạng thái Active */
 .sidebar-icon.active {
-  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Vạch chỉ thị bên cạnh khi Active */
+.sidebar-icon.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 4px;
+  background-color: #ffffff;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Nút Logout nằm dưới cùng */
+.logout-button {
+  margin-top: auto; /* Đẩy nút xuống đáy */
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-button:hover {
+  color: #ff4d4f; /* Màu đỏ khi di chuột vào nút logout */
+  transform: translateY(-2px);
+}
+
+/* Tooltip đơn giản (nếu trình duyệt hỗ trợ title) */
+.logout-button:active {
+  transform: scale(0.9);
 }

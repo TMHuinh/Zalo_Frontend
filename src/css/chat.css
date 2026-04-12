@@ -1,169 +1,51 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f5f7fb;
-}
-
-.chat-container {
+/* Khung tổng quát */
+.chat-layout {
   display: flex;
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
-  padding-top:10px ;
+  background-color: #fff;
 }
 
-/* ===== SIDEBAR ===== */
+/* Sidebar giữ nguyên width */
 .sidebar {
-  width: 70px;
-  background: linear-gradient(180deg, #0b5ed7, #0a4dbf);
-  color: white;
+  width: 75px;
+  background: linear-gradient(180deg, #0084ff, #0056b3);
+  flex-shrink: 0;
+}
+
+/* CỘT BÊN TRÁI: Chứa ChatList hoặc ContactsPanel */
+.chat-left-column {
+  width: 350px; /* Độ rộng cố định cho cột danh sách */
+  border-right: 1px solid #e4e6eb;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
+  flex-shrink: 0; /* Không cho phép bị co lại */
+  background-color: #fff;
+  z-index: 10; /* Đảm bảo luôn nằm trên nền */
+}
+
+/* CỘT BÊN PHẢI: Chứa nội dung chat */
+.chat-right-column {
+  flex: 1; /* Tự động dãn hết phần còn lại */
+  display: flex;
+  flex-direction: column;
+  background-color: #f9f9f9;
+  min-width: 0; /* RẤT QUAN TRỌNG: Ngăn nội dung bên trong đẩy phình khung */
+}
+
+/* Các thành phần bên trong chat-left-column phải chiếm 100% chiều rộng của nó */
+.chat-list, .contacts-panel {
+  width: 100% !important;
   height: 100%;
 }
 
-.avatar {
-  width: 42px;
-  height: 42px;
-  background: #ff7aa2;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  cursor: pointer;
-  margin-bottom: 25px;
-  transition: 0.3s;
-}
-
-.avatar:hover {
-  transform: scale(1.1);
-}
-
-.menu-item {
-  margin: 18px 0;
-  font-size: 20px;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: 0.3s;
-}
-
-.menu-item:hover {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
-/* ===== CHAT LIST ===== */
-.chat-list {
-  width: 320px;
-  background: #fff;
-  border-right: 1px solid #eee;
+/* Trạng thái trống */
+.empty-state {
   display: flex;
   flex-direction: column;
-  height: 100%;
-}
-
-/* SEARCH */
-.search-box {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-}
-
-.search-box input {
-  width: 94%;
-  padding: 10px 12px;
-  border-radius: 20px;
-  border: none;
-  background: #f1f3f5;
-  outline: none;
-  font-size: 14px;
-}
-
-/* LIST */
-.list {
-  overflow-y: auto;
-}
-
-.chat-item {
-  display: flex;
-  padding: 12px;
-  cursor: pointer;
-  transition: 0.2s;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.chat-item:hover {
-  background: #f0f4ff;
-}
-
-/* ACTIVE CHAT */
-.chat-item.active {
-  background: #e7f0ff;
-}
-
-/* AVATAR */
-.avatar-small {
-  width: 42px;
-  height: 42px;
-  background: #d0d0d0;
-  border-radius: 50%;
-  display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  color: #555;
-}
-
-/* INFO */
-.info {
-  margin-left: 10px;
-  flex: 1;
-}
-
-.name {
-  font-weight: 600;
-  margin: 0;
-}
-
-.last-msg {
-  font-size: 13px;
-  color: #888;
-}
-
-/* ===== MAIN ===== */
-.chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f7fb;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.chat-main h2 {
-  color: #1a73e8;
-  margin-bottom: 10px;
-}
-
-.chat-main p {
-  color: #666;
-}
-.avatar-small {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  background: #ddd;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-weight: bold;
-}
-
-.avatar-img {
-  width: 100%;
   height: 100%;
-  object-fit: cover;
+  color: #65676b;
 }
