@@ -16,5 +16,14 @@ const messageApi = {
             },
         });
     },
+    revokeMessage: (messageId) =>
+        axiosClient.delete("/message/revoke", {
+            data: { messageId },
+        }),
+
+    deleteMessage: (messageId) =>
+        axiosClient.delete("/message/delete", {
+            data: { messageId },
+        }),
 };
 export default messageApi;
