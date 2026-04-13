@@ -12,6 +12,7 @@ import AddFriendModal from "../components/AddFriendModal";
 import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
 import socket from "../socket/socket";
+import userApi from "../api/userApi";
 
 function ChatList({ onSelectConversation, activeConversationId }) {
   const [search, setSearch] = useState("");
@@ -20,6 +21,11 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   const [unread, setUnread] = useState({});
 
   const currentUserId = getUserIdFromToken();
+  const handleUpdateUser = async () => {
+    const userId = getUserIdFromToken();
+    const res = await userApi.getById(userId);
+    setUser(res.data.result);
+  };
 
   const fetchConversations = async () => {
     try {
@@ -28,7 +34,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       const sorted = (res.data.result || []).sort(
         (a, b) =>
           new Date(b.updatedAt || b.createdAt) -
-          new Date(a.updatedAt || a.createdAt)
+          new Date(a.updatedAt || a.createdAt),
       );
 
       setConversations(sorted);
@@ -58,13 +64,13 @@ function ChatList({ onSelectConversation, activeConversationId }) {
         const sorted = (res.data.result || []).sort(
           (a, b) =>
             new Date(b.updatedAt || b.createdAt) -
-            new Date(a.updatedAt || a.createdAt)
+            new Date(a.updatedAt || a.createdAt),
         );
 
         setConversations(sorted);
 
         const targetConv = sorted.find((conv) =>
-          conv.members?.some((m) => m.userId?._id === msg.userId)
+          conv.members?.some((m) => m.userId?._id === msg.userId),
         );
 
         if (!targetConv) return;
@@ -93,9 +99,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   }, [activeConversationId]);
 
   const filtered = (conversations || []).filter((c) => {
-    const otherUser = c.members?.find(
-      (m) => m.userId?._id !== currentUserId
-    );
+    const otherUser = c.members?.find((m) => m.userId?._id !== currentUserId);
 
     const name = otherUser?.userId?.fullName || "Unknown";
     return name.toLowerCase().includes(search.toLowerCase());
@@ -163,7 +167,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       <div className="d-flex flex-column gap-2">
         {filtered.map((conv) => {
           const otherUser = conv.members?.find(
-            (m) => m.userId?._id !== currentUserId
+            (m) => m.userId?._id !== currentUserId,
           );
 
           const user = otherUser?.userId;
@@ -191,12 +195,10 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                 transition: "all 0.2s ease",
               }}
               onMouseEnter={(e) => {
-                if (!isActive)
-                  e.currentTarget.style.background = "#f1f3f5";
+                if (!isActive) e.currentTarget.style.background = "#f1f3f5";
               }}
               onMouseLeave={(e) => {
-                if (!isActive)
-                  e.currentTarget.style.background = "#fff";
+                if (!isActive) e.currentTarget.style.background = "#fff";
               }}
             >
               <Row className="align-items-center">
@@ -222,8 +224,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                       maxWidth: 180,
                     }}
                   >
-                    {conv.lastMessageId?.content ||
-                      "Chưa có tin nhắn"}
+                    {conv.lastMessageId?.content || "Chưa có tin nhắn"}
                   </div>
                 </Col>
 
@@ -237,9 +238,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                         padding: "6px 8px",
                       }}
                     >
-                      {unread[conv._id] > 9
-                        ? "9+"
-                        : unread[conv._id]}
+                      {unread[conv._id] > 9 ? "9+" : unread[conv._id]}
                     </Badge>
                   )}
                 </Col>
@@ -251,7 +250,11 @@ function ChatList({ onSelectConversation, activeConversationId }) {
 
       {/* MODAL */}
       {openModal && (
-        <AddFriendModal onClose={() => setOpenModal(false)} />
+        <AddFriendModal
+          onClose={() => setOpenModal(false)}
+          currentUserId={currentUserId}
+          onUserUpdated={handleUpdateUser}
+        />
       )}
     </div>
   );

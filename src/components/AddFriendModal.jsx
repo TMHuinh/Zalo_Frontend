@@ -3,12 +3,14 @@ import friendshipApi from "../api/friendshipApi";
 import userApi from "../api/userApi";
 import { toast } from "react-toastify";
 import socket from "../socket/socket"; // 🔥 THÊM
+import EditProfileModal from "./EditProfileModal";
 
-function AddFriendModal({ onClose, currentUserId }) {
+function AddFriendModal({ onClose, currentUserId, onUserUpdated }) {
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   // ======================
   // SEARCH USER
@@ -163,9 +165,7 @@ function AddFriendModal({ onClose, currentUserId }) {
                   />
 
                   <div>
-                    <div style={{ fontWeight: 700 }}>
-                      {foundUser.fullName}
-                    </div>
+                    <div style={{ fontWeight: 700 }}>{foundUser.fullName}</div>
 
                     <div style={{ fontSize: 13, color: "#666" }}>
                       {foundUser.phone}
@@ -202,6 +202,7 @@ function AddFriendModal({ onClose, currentUserId }) {
                 <div style={{ marginTop: 12 }}>
                   {relationship === "self" ? (
                     <button
+                      onClick={() => setEditOpen(true)}
                       style={{
                         width: "100%",
                         padding: 10,
@@ -210,9 +211,7 @@ function AddFriendModal({ onClose, currentUserId }) {
                         background: "#ff9800",
                         color: "#fff",
                         fontWeight: 600,
-                        cursor: "not-allowed",
                       }}
-                      disabled
                     >
                       Cập nhật
                     </button>
@@ -284,6 +283,25 @@ function AddFriendModal({ onClose, currentUserId }) {
           </div>
         </div>
       </div>
+      <EditProfileModal
+        user={foundUser}
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSuccess={async () => {
+          const userId = foundUser._id;
+
+          const res = await userApi.getById(userId);
+
+          setResult((prev) => ({
+            ...prev,
+            user: res.data.result, // 🔥 data mới nhất
+          }));
+          onUserUpdated?.();
+
+          setEditOpen(false);
+          toast.success("Cập nhật thành công");
+        }}
+      />
     </>
   );
 }

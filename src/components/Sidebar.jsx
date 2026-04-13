@@ -16,6 +16,15 @@ function Sidebar({ tab, setTab }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null);
   const { hasNewRequest } = useNotificationStore();
+  const handleUpdateUser = async () => {
+    try {
+      const userId = getUserIdFromToken();
+      const res = await userApi.getById(userId);
+      setUser(res.data.result);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Lấy thông tin user khi Sidebar load
   useEffect(() => {
@@ -71,7 +80,7 @@ function Sidebar({ tab, setTab }) {
           />
         ) : (
           <div className="sidebar-avatar-fallback">
-            {user ? user.fullName.charAt(0) : "U"}
+            {user?.fullName ? user.fullName.charAt(0) : "U"}
           </div>
         )}
       </div>
@@ -124,9 +133,7 @@ function Sidebar({ tab, setTab }) {
           setIsModalOpen(false);
           navigate("/change-password");
         }}
-        onUpdateInfo={(updatedUser) => {
-          setUser(updatedUser);
-        }}
+        onUpdateInfo={handleUpdateUser}
       />
     </div>
   );

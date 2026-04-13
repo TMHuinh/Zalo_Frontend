@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import EditProfileModal from "./EditProfileModal";
 
 function ProfileModal({
   user,
@@ -13,6 +14,7 @@ function ProfileModal({
   const [avatar, setAvatar] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     setAvatar(user?.avatarUrl || "");
@@ -41,7 +43,7 @@ function ProfileModal({
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const newAvatar = res.data.result.avatarUrl;
@@ -220,7 +222,7 @@ function ProfileModal({
             </button>
 
             <button
-              onClick={() => onUpdateInfo?.(user)}
+              onClick={() => setEditOpen(true)}
               style={{
                 flex: 1,
                 background: "linear-gradient(135deg,#0068ff,#00c6ff)",
@@ -275,6 +277,14 @@ function ProfileModal({
           }
         `}
       </style>
+      <EditProfileModal
+        user={user}
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSuccess={(updatedUser) => {
+          onUpdateInfo?.(updatedUser); // update sidebar
+        }}
+      />
     </>
   );
 }

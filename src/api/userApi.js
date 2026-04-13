@@ -14,6 +14,10 @@ const userApi = {
   searchByPhone: (phone) => {
     return axiosClient.get(`/user/search?phone=${phone}`);
   },
+  updateUser: (id, data) => {
+    return axiosClient.put(`/user/${id}`, data);
+
+  }
 };
 
 export default userApi;
