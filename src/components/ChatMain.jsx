@@ -58,26 +58,31 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   // RECEIVE NEW MESSAGE
   // =========================
   useEffect(() => {
-    const handleReceive = async () => {
-      if (!conversationId) return;
+    const handleReceive = (data) => {
+      if (!data?.message) return;
+
+      let msg;
 
       try {
-        const res = await messageApi.getMessages(conversationId, 1, 1);
-        const latest = res.data.result.data[0];
-
-        setMessages((prev) => {
-          if (prev.some((m) => m._id === latest._id)) return prev;
-          return [...prev, latest];
-        });
-      } catch (err) {
-        console.log(err);
+        msg =
+          typeof data.message === "string"
+            ? JSON.parse(data.message)
+            : data.message;
+      } catch (e) {
+        console.log("Parse error:", e);
+        return;
       }
+
+      setMessages((prev) => {
+        if (prev.some((m) => m._id === msg._id)) return prev;
+        return [...prev, msg];
+      });
     };
 
     socket.on("receive_message", handleReceive);
 
     return () => socket.off("receive_message", handleReceive);
-  }, [conversationId]);
+  }, []);
 
   // =========================
   // HANDLE RECALL / DELETE REALTIME
@@ -140,8 +145,10 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         userId: currentUserId,
         toUserId: otherUser?.userId?._id,
         conversationId,
-        message: saved.content || "[file]",
+        // message: JSON.stringify(saved) || "[file]",
+        message: JSON.stringify(saved),
       };
+      console.log(payload.message);
 
       socket.emit("send_message", payload);
 

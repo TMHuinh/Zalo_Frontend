@@ -52,41 +52,42 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   }, [activeConversationId]);
 
   useEffect(() => {
-    const handleReceive = async (msg) => {
-      try {
-        const res = await conversationApi.getByUserId();
+    const handleReceive = async (data) => {
+      const msg =
+        typeof data.message === "string"
+          ? JSON.parse(data.message)
+          : data.message;
 
-        const sorted = (res.data.result || []).sort(
-          (a, b) =>
-            new Date(b.updatedAt || b.createdAt) -
-            new Date(a.updatedAt || a.createdAt),
-        );
+      const res = await conversationApi.getByUserId();
 
-        setConversations(sorted);
+      const sorted = (res.data.result || []).sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt) -
+          new Date(a.updatedAt || a.createdAt),
+      );
 
-        const targetConv = sorted.find((conv) =>
-          conv.members?.some((m) => m.userId?._id === msg.userId),
-        );
+      setConversations(sorted);
 
-        if (!targetConv) return;
+      const targetConv = sorted.find(
+        (conv) => conv._id === data.conversationId,
+      );
 
-        const isActive = targetConv._id === activeConversationId;
+      if (!targetConv) return;
 
-        if (isActive) {
-          setUnread((prev) => ({
-            ...prev,
-            [targetConv._id]: 0,
-          }));
-          return;
-        }
+      const isActive = targetConv._id === activeConversationId;
 
+      if (isActive) {
         setUnread((prev) => ({
           ...prev,
-          [targetConv._id]: (prev[targetConv._id] || 0) + 1,
+          [targetConv._id]: 0,
         }));
-      } catch (err) {
-        console.log("Socket handler error:", err);
+        return;
       }
+
+      setUnread((prev) => ({
+        ...prev,
+        [targetConv._id]: (prev[targetConv._id] || 0) + 1,
+      }));
     };
 
     socket.on("receive_message", handleReceive);
