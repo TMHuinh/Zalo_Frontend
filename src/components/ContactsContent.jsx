@@ -1,20 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-    Image,
-    Row,
-    Col,
-    Button,
-    Card,
-} from "react-bootstrap";
+import { Image, Row, Col, Button, Card } from "react-bootstrap";
 import friendshipApi from "../api/friendshipApi";
-import conversationApi from "../api/conversationApi"; // 🔥 THÊM
+import conversationApi from "../api/conversationApi";
 import socket from "../socket/socket";
 import useNotificationStore from "../store/notificationStore";
 
 function ContactsContent({ view, search = "", onSelectConversation }) {
     const [friends, setFriends] = useState([]);
     const [requests, setRequests] = useState([]);
-
     const { clearNewRequest } = useNotificationStore();
 
     // ================= FORMAT TIME =================
@@ -37,12 +30,20 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
             try {
                 if (view === "friends") {
                     const res = await friendshipApi.getFriends();
-                    setFriends(res.data.data || []);
+
+                    const data = res.data?.data;
+
+                    // 🔥 FIX: object -> array
+                    const flat = Array.isArray(data)
+                        ? data
+                        : Object.values(data || {}).flat();
+
+                    setFriends(flat);
                 }
 
                 if (view === "requests") {
                     const res = await friendshipApi.getPending();
-                    setRequests(res.data.data || []);
+                    setRequests(res.data?.data || []);
                 }
             } catch (err) {
                 console.log(err);
@@ -85,9 +86,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
         socket.on("user_online", (userId) => {
             setFriends((prev) =>
                 prev.map((f) =>
-                    f.friend._id === userId
-                        ? { ...f, friend: { ...f.friend, isOnline: true } }
-                        : f
+                    f._id === userId ? { ...f, isOnline: true } : f
                 )
             );
         });
@@ -95,9 +94,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
         socket.on("user_offline", (userId) => {
             setFriends((prev) =>
                 prev.map((f) =>
-                    f.friend._id === userId
-                        ? { ...f, friend: { ...f.friend, isOnline: false } }
-                        : f
+                    f._id === userId ? { ...f, isOnline: false } : f
                 )
             );
         });
@@ -119,40 +116,34 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     useEffect(() => {
         socket.on("new_conversation", () => {
             friendshipApi.getFriends().then((res) => {
-                setFriends(res.data.data || []);
+                const data = res.data?.data;
+
+                const flat = Array.isArray(data)
+                    ? data
+                    : Object.values(data || {}).flat();
+
+                setFriends(flat);
             });
         });
 
         return () => socket.off("new_conversation");
     }, []);
 
-    // ================= 🔥 MỞ CHAT =================
+    // ================= OPEN CHAT =================
     const handleMessage = async (friendId) => {
         try {
             const res = await conversationApi.getByUserId();
 
-            console.log("RAW RES:", res);
-            console.log("DATA:", res.data);
-
             const conversations =
                 res.data.result || res.data.data || [];
 
-            console.log("CONVS:", conversations);
-
-            const found = conversations.find((c) => {
-                console.log("CHECK CONV:", c);
-
-                return c.members?.some((m) => {
-                    console.log("MEMBER:", m);
-
-                    return (
+            const found = conversations.find((c) =>
+                c.members?.some(
+                    (m) =>
                         m.userId?._id === friendId ||
                         m.userId === friendId
-                    );
-                });
-            });
-
-            console.log("FOUND:", found);
+                )
+            );
 
             if (found) {
                 onSelectConversation?.(found);
@@ -160,7 +151,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
                 console.log("❌ KHÔNG TÌM THẤY CONVERSATION");
             }
         } catch (err) {
-            console.log("ERROR:", err);
+            console.log(err);
         }
     };
 
@@ -168,7 +159,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     const keyword = search.toLowerCase();
 
     const filteredFriends = friends.filter((f) =>
-        f.friend.fullName.toLowerCase().includes(keyword)
+        f.fullName?.toLowerCase().includes(keyword)
     );
 
     const filteredRequests = requests.filter((r) => {
@@ -181,43 +172,41 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     });
 
     // ================= AVATAR =================
-    const renderAvatar = (user) => {
-        return (
-            <div style={{ position: "relative" }}>
-                {user?.avatarUrl ? (
-                    <Image
-                        src={user.avatarUrl}
-                        roundedCircle
-                        width={50}
-                        height={50}
-                        style={{ objectFit: "cover" }}
-                    />
-                ) : (
-                    <div
-                        className="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle"
-                        style={{ width: 50, height: 50, fontWeight: "bold" }}
-                    >
-                        {user?.fullName?.charAt(0) || "U"}
-                    </div>
-                )}
+    const renderAvatar = (user) => (
+        <div style={{ position: "relative" }}>
+            {user?.avatarUrl ? (
+                <Image
+                    src={user.avatarUrl}
+                    roundedCircle
+                    width={50}
+                    height={50}
+                    style={{ objectFit: "cover" }}
+                />
+            ) : (
+                <div
+                    className="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle"
+                    style={{ width: 50, height: 50, fontWeight: "bold" }}
+                >
+                    {user?.fullName?.charAt(0) || "U"}
+                </div>
+            )}
 
-                {user?.isOnline && (
-                    <span
-                        style={{
-                            position: "absolute",
-                            bottom: 2,
-                            right: 2,
-                            width: 12,
-                            height: 12,
-                            backgroundColor: "#22c55e",
-                            borderRadius: "50%",
-                            border: "2px solid white",
-                        }}
-                    />
-                )}
-            </div>
-        );
-    };
+            {user?.isOnline && (
+                <span
+                    style={{
+                        position: "absolute",
+                        bottom: 2,
+                        right: 2,
+                        width: 12,
+                        height: 12,
+                        backgroundColor: "#22c55e",
+                        borderRadius: "50%",
+                        border: "2px solid white",
+                    }}
+                />
+            )}
+        </div>
+    );
 
     // ================= ACTION =================
     const handleAccept = async (id) => {
@@ -236,37 +225,33 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
             <div className="p-3">
                 <h5 className="mb-3 fw-bold">Bạn bè</h5>
 
-                {filteredFriends.map((f) => {
-                    const user = f.friend;
+                {filteredFriends.map((user) => (
+                    <Card key={user._id} className="mb-2 border-0 shadow-sm rounded-4">
+                        <Card.Body>
+                            <Row className="align-items-center">
+                                <Col xs="auto">{renderAvatar(user)}</Col>
 
-                    return (
-                        <Card key={f._id} className="mb-2 border-0 shadow-sm rounded-4">
-                            <Card.Body>
-                                <Row className="align-items-center">
-                                    <Col xs="auto">{renderAvatar(user)}</Col>
+                                <Col>
+                                    <div className="fw-semibold">{user.fullName}</div>
+                                    <div style={{ fontSize: 13, color: user.isOnline ? "#22c55e" : "#6c757d" }}>
+                                        {user.isOnline ? "Đang hoạt động" : "Offline"}
+                                    </div>
+                                </Col>
 
-                                    <Col>
-                                        <div className="fw-semibold">{user.fullName}</div>
-                                        <div style={{ fontSize: 13, color: user.isOnline ? "#22c55e" : "#6c757d" }}>
-                                            {user.isOnline ? "Đang hoạt động" : "Offline"}
-                                        </div>
-                                    </Col>
-
-                                    <Col xs="auto">
-                                        <Button
-                                            size="sm"
-                                            variant="primary"
-                                            className="rounded-pill px-3"
-                                            onClick={() => handleMessage(user._id)} // 🔥 THÊM
-                                        >
-                                            Nhắn tin
-                                        </Button>
-                                    </Col>
-                                </Row>
-                            </Card.Body>
-                        </Card>
-                    );
-                })}
+                                <Col xs="auto">
+                                    <Button
+                                        size="sm"
+                                        variant="primary"
+                                        className="rounded-pill px-3"
+                                        onClick={() => handleMessage(user._id)}
+                                    >
+                                        Nhắn tin
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </Card.Body>
+                    </Card>
+                ))}
             </div>
         );
     }
