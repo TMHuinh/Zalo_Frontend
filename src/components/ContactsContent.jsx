@@ -10,7 +10,6 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
   const [requests, setRequests] = useState([]);
   const { clearNewRequest } = useNotificationStore();
 
-  // ================= FORMAT TIME =================
   const formatTimeAgo = (date) => {
     if (!date) return "";
 
@@ -24,7 +23,6 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return `${Math.floor(diff / 86400)} ngày trước`;
   };
 
-  // ================= FETCH =================
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -51,7 +49,6 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     fetchData();
   }, [view]);
 
-  // ================= REALTIME =================
   useEffect(() => {
     socket.on("notification:new", (noti) => {
       const data = noti?.data || {};
@@ -77,7 +74,6 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return () => socket.off("notification:new");
   }, []);
 
-  // ================= ONLINE =================
   useEffect(() => {
     socket.on("user_online", (userId) => {
       setFriends((prev) =>
@@ -97,14 +93,12 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     };
   }, []);
 
-  // ================= CLEAR DOT =================
   useEffect(() => {
     if (view === "requests") {
       clearNewRequest();
     }
   }, [view]);
 
-  // ================= NEW FRIEND =================
   useEffect(() => {
     socket.on("new_conversation", () => {
       friendshipApi.getFriends().then((res) => {
@@ -121,11 +115,9 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return () => socket.off("new_conversation");
   }, []);
 
-  // ================= OPEN CHAT =================
   const handleMessage = async (friendId) => {
     try {
       const res = await conversationApi.getByUserId();
-
       const conversations = res.data.result || res.data.data || [];
 
       const found = conversations.find((c) =>
@@ -134,17 +126,12 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
         ),
       );
 
-      if (found) {
-        onSelectConversation?.(found);
-      } else {
-        console.log("❌ KHÔNG TÌM THẤY CONVERSATION");
-      }
+      if (found) onSelectConversation?.(found);
     } catch (err) {
       console.log(err);
     }
   };
 
-  // ================= FILTER =================
   const keyword = search.toLowerCase();
 
   const filteredFriends = friends.filter((f) =>
@@ -152,14 +139,10 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
   );
 
   const filteredRequests = requests.filter((r) => {
-    const user = r.requesterId || {
-      fullName: r.requesterName,
-    };
-
+    const user = r.requesterId || { fullName: r.requesterName };
     return user.fullName.toLowerCase().includes(keyword);
   });
 
-  // ================= AVATAR =================
   const renderAvatar = (user) => (
     <div style={{ position: "relative" }}>
       {user?.avatarUrl ? (
@@ -173,7 +156,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
       ) : (
         <div
           className="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle"
-          style={{ width: 50, height: 50, fontWeight: "bold" }}
+          style={{ width: 50, height: 50 }}
         >
           {user?.fullName?.charAt(0) || "U"}
         </div>
@@ -196,7 +179,6 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     </div>
   );
 
-  // ================= ACTION =================
   const handleAccept = async (id) => {
     await friendshipApi.acceptRequest(id);
     setRequests((prev) => prev.filter((r) => r._id !== id));
@@ -207,18 +189,15 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     setRequests((prev) => prev.filter((r) => r._id !== id));
   };
 
-  // ================= FRIENDS =================
   if (view === "friends") {
     return (
       <div className="p-3">
         <h5 className="mb-3 fw-bold">Bạn bè</h5>
-
         {filteredFriends.map((user) => (
           <Card key={user._id} className="mb-2 border-0 shadow-sm rounded-4">
             <Card.Body>
               <Row className="align-items-center">
                 <Col xs="auto">{renderAvatar(user)}</Col>
-
                 <Col>
                   <div className="fw-semibold">{user.fullName}</div>
                   <div
@@ -230,14 +209,8 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
                     {user.isOnline ? "Đang hoạt động" : "Offline"}
                   </div>
                 </Col>
-
                 <Col xs="auto">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="rounded-pill px-3"
-                    onClick={() => handleMessage(user._id)}
-                  >
+                  <Button size="sm" onClick={() => handleMessage(user._id)}>
                     Nhắn tin
                   </Button>
                 </Col>
@@ -249,47 +222,25 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     );
   }
 
-  // ================= REQUESTS =================
   if (view === "requests") {
     return (
       <div className="p-3">
         <h5 className="mb-3 fw-bold">Lời mời kết bạn</h5>
-
         {filteredRequests.map((r) => {
-          const user = r.requesterId || {
-            fullName: r.requesterName,
-            avatarUrl: r.requesterAvatar,
-          };
+          const user = r.requesterId || { fullName: r.requesterName };
 
           return (
-            <Card key={r._id} className="mb-3 border-0 shadow-sm rounded-4">
+            <Card key={r._id} className="mb-3">
               <Card.Body>
                 <Row className="align-items-center">
                   <Col xs="auto">{renderAvatar(user)}</Col>
-
                   <Col>
-                    <div className="fw-semibold">{user.fullName}</div>
-                    <div className="text-muted" style={{ fontSize: 13 }}>
-                      {formatTimeAgo(r.createdAt)}
-                    </div>
+                    <div>{user.fullName}</div>
+                    <div>{formatTimeAgo(r.createdAt)}</div>
                   </Col>
-
-                  <Col xs="auto" className="d-flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => handleAccept(r._id)}
-                    >
-                      Đồng ý
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      onClick={() => handleReject(r._id)}
-                    >
-                      Từ chối
-                    </Button>
+                  <Col xs="auto">
+                    <Button onClick={() => handleAccept(r._id)}>Đồng ý</Button>
+                    <Button onClick={() => handleReject(r._id)}>Từ chối</Button>
                   </Col>
                 </Row>
               </Card.Body>
