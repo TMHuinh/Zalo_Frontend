@@ -30,10 +30,8 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
       try {
         if (view === "friends") {
           const res = await friendshipApi.getFriends();
-
           const data = res.data?.data;
 
-          // 🔥 FIX: object -> array
           const flat = Array.isArray(data)
             ? data
             : Object.values(data || {}).flat();
