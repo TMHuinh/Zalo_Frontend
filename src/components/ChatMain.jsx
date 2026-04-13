@@ -4,7 +4,7 @@ import "../css/chatMain.css";
 import messageApi from "../api/messageApi";
 import { FiPaperclip } from "react-icons/fi";
 
-function ChatMain({ currentUserId, conversation }) {
+function ChatMain({ currentUserId, conversation, onNewMessage }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [files, setFiles] = useState([]);
@@ -17,7 +17,7 @@ function ChatMain({ currentUserId, conversation }) {
   const conversationId = conversation?._id;
 
   // =========================
-  // SCROLL
+  // AUTO SCROLL
   // =========================
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,7 +42,20 @@ function ChatMain({ currentUserId, conversation }) {
   }, [conversationId]);
 
   // =========================
-  // SOCKET RECEIVE
+  // JOIN ROOM
+  // =========================
+  useEffect(() => {
+    if (!conversationId) return;
+
+    socket.emit("join_conversation", conversationId);
+
+    return () => {
+      socket.emit("leave_conversation", conversationId);
+    };
+  }, [conversationId]);
+
+  // =========================
+  // RECEIVE NEW MESSAGE
   // =========================
   useEffect(() => {
     const handleReceive = async () => {
@@ -53,7 +66,7 @@ function ChatMain({ currentUserId, conversation }) {
         const latest = res.data.result.data[0];
 
         setMessages((prev) => {
-          if (prev.find((m) => m._id === latest._id)) return prev;
+          if (prev.some((m) => m._id === latest._id)) return prev;
           return [...prev, latest];
         });
       } catch (err) {
@@ -65,6 +78,31 @@ function ChatMain({ currentUserId, conversation }) {
 
     return () => socket.off("receive_message", handleReceive);
   }, [conversationId]);
+
+  // =========================
+  // HANDLE RECALL / DELETE REALTIME
+  // =========================
+  useEffect(() => {
+    const handleRecalled = ({ messageId }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)),
+      );
+    };
+
+    const handleDeleted = ({ messageId }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === messageId ? { ...m, isDeleted: true } : m)),
+      );
+    };
+
+    socket.on("message_recalled", handleRecalled);
+    socket.on("message_deleted", handleDeleted);
+
+    return () => {
+      socket.off("message_recalled", handleRecalled);
+      socket.off("message_deleted", handleDeleted);
+    };
+  }, []);
 
   // =========================
   // FILE HANDLER
@@ -98,10 +136,19 @@ function ChatMain({ currentUserId, conversation }) {
         (m) => m.userId._id !== currentUserId,
       );
 
-      socket.emit("send_message", {
+      const payload = {
         userId: currentUserId,
         toUserId: otherUser?.userId?._id,
-        message: input || "[file]",
+        conversationId,
+        message: saved.content || "[file]",
+      };
+
+      socket.emit("send_message", payload);
+
+      // 🔥 QUAN TRỌNG: update ChatList ngay lập tức
+      onNewMessage?.({
+        conversationId,
+        message: saved,
       });
 
       setInput("");
@@ -113,7 +160,7 @@ function ChatMain({ currentUserId, conversation }) {
   };
 
   // =========================
-  // ACTION REVOKE / DELETE
+  // REVOKE / DELETE
   // =========================
   const handleAction = async (msg, type) => {
     const actionText = type === "revoke" ? "thu hồi" : "xoá";
@@ -139,14 +186,31 @@ function ChatMain({ currentUserId, conversation }) {
         prev.map((m) => (m._id === updated._id ? updated : m)),
       );
 
+      const otherUser = conversation.members.find(
+        (m) => m.userId._id !== currentUserId,
+      );
+
+      if (type === "revoke") {
+        socket.emit("recall_message", {
+          toUserId: otherUser.userId._id,
+          messageId: msg._id,
+        });
+      } else {
+        socket.emit("delete_message", {
+          toUserId: otherUser.userId._id,
+          messageId: msg._id,
+        });
+      }
+
       setMenuMessageId(null);
     } catch (err) {
       console.log(err);
     }
   };
-  // ===========
-  // click đóng menu
-  // ========
+
+  // =========================
+  // CLICK OUTSIDE MENU
+  // =========================
   useEffect(() => {
     const handleClickOutside = () => {
       setMenuMessageId(null);
@@ -158,41 +222,14 @@ function ChatMain({ currentUserId, conversation }) {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
-  useEffect(() => {
-    if (!conversationId) return;
-
-    socket.emit("join_conversation", conversationId);
-
-    return () => {
-      socket.emit("leave_conversation", conversationId);
-    };
-  }, [conversationId]);
-
-  useEffect(() => {
-    const handleMessageUpdated = (updatedMsg) => {
-      setMessages((prev) =>
-        prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)),
-      );
-    };
-
-    socket.on("message_updated", handleMessageUpdated);
-
-    return () => {
-      socket.off("message_updated", handleMessageUpdated);
-    };
-  }, []);
 
   // =========================
   // RENDER MESSAGE
   // =========================
   const renderMessage = (msg) => {
-    if (msg.isDeleted) {
-      return <i>🗑 Tin nhắn đã bị xoá</i>;
-    }
-
-    if (msg.isRecalled) {
+    if (msg.isDeleted) return <i>🗑 Tin nhắn đã bị xoá</i>;
+    if (msg.isRecalled)
       return <i style={{ opacity: 0.6 }}>🚫 Tin nhắn đã được thu hồi</i>;
-    }
 
     return (
       <>
@@ -221,6 +258,9 @@ function ChatMain({ currentUserId, conversation }) {
     (m) => m.userId._id !== currentUserId,
   );
 
+  // =========================
+  // UI
+  // =========================
   return (
     <div className="chat-container-main">
       {/* HEADER */}
@@ -241,7 +281,7 @@ function ChatMain({ currentUserId, conversation }) {
         )}
       </div>
 
-      {/* MESSAGE LIST */}
+      {/* BODY */}
       <div className="chat-body">
         {messages.map((msg, index) => {
           const senderId =
@@ -256,7 +296,6 @@ function ChatMain({ currentUserId, conversation }) {
               onMouseEnter={() => setHoveredMessageId(msg._id)}
               onMouseLeave={() => setHoveredMessageId(null)}
             >
-              {/* 3 DOT */}
               {isMe && hoveredMessageId === msg._id && (
                 <div
                   className="msg-dots"
@@ -271,7 +310,6 @@ function ChatMain({ currentUserId, conversation }) {
                 </div>
               )}
 
-              {/* MENU */}
               {menuMessageId === msg._id && isMe && (
                 <div className="msg-menu">
                   <button onClick={() => handleAction(msg, "revoke")}>
@@ -300,7 +338,7 @@ function ChatMain({ currentUserId, conversation }) {
         </div>
       )}
 
-      {/* INPUT */}
+      {/* FOOTER */}
       {conversation && (
         <div className="chat-footer">
           <input
@@ -315,13 +353,13 @@ function ChatMain({ currentUserId, conversation }) {
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            placeholder="Nhập tin nhắn..."
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            placeholder="Nhập tin nhắn..."
           />
 
           <button

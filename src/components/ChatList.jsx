@@ -12,7 +12,7 @@ import AddFriendModal from "../components/AddFriendModal";
 import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
 import socket from "../socket/socket";
-import userApi from "../api/userApi";
+import { FiUserPlus } from "react-icons/fi";
 
 function ChatList({ onSelectConversation, activeConversationId }) {
   const [search, setSearch] = useState("");
@@ -21,11 +21,6 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   const [unread, setUnread] = useState({});
 
   const currentUserId = getUserIdFromToken();
-  const handleUpdateUser = async () => {
-    const userId = getUserIdFromToken();
-    const res = await userApi.getById(userId);
-    setUser(res.data.result);
-  };
 
   const fetchConversations = async () => {
     try {
@@ -152,15 +147,13 @@ function ChatList({ onSelectConversation, activeConversationId }) {
             borderRadius: "12px 0 0 12px",
           }}
         />
-        <Button
-          variant="primary"
+        <button
+          className="add-friend-btn"
+          title="Thêm bạn"
           onClick={() => setOpenModal(true)}
-          style={{
-            borderRadius: "0 12px 12px 0",
-          }}
         >
-          + Bạn
-        </Button>
+          <FiUserPlus size={14} />
+        </button>
       </InputGroup>
 
       {/* LIST */}
@@ -249,13 +242,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       </div>
 
       {/* MODAL */}
-      {openModal && (
-        <AddFriendModal
-          onClose={() => setOpenModal(false)}
-          currentUserId={currentUserId}
-          onUserUpdated={handleUpdateUser}
-        />
-      )}
+      {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
     </div>
   );
 }

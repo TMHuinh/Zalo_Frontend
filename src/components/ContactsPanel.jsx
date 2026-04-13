@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Form, InputGroup, Button } from "react-bootstrap";
 import useNotificationStore from "../store/notificationStore";
 import AddFriendModal from "../components/AddFriendModal";
+import { FiUserPlus } from "react-icons/fi";
+import "../css/contactsPanel.css";
 
 function ContactsPanel({ contactView, setContactView, onSearch }) {
   const [search, setSearch] = useState("");
@@ -29,14 +31,13 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
           onChange={(e) => handleSearch(e.target.value)}
           style={{ borderRadius: "12px 0 0 12px" }}
         />
-
-        <Button
-          variant="primary"
+        <button
+          className="add-friend-btn"
+          title="Thêm bạn"
           onClick={() => setOpenModal(true)}
-          style={{ borderRadius: "0 12px 12px 0" }}
         >
-          + Bạn
-        </Button>
+          <FiUserPlus size={16} />
+        </button>
       </InputGroup>
 
       {/* MENU */}
@@ -93,9 +94,7 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
       </div>
 
       {/* MODAL */}
-      {openModal && (
-        <AddFriendModal onClose={() => setOpenModal(false)} />
-      )}
+      {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
     </div>
   );
 }

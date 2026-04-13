@@ -1,0 +1,26 @@
+.add-friend-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 6px; /* ❗ không tròn hẳn, hơi vuông nhẹ giống ảnh */
+  border: none;
+
+  background: transparent; /* ❗ nền trong suốt giống ảnh */
+  color: #333;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-friend-btn:hover {
+  background: #f0f2f5;
+}
