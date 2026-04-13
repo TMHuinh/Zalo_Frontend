@@ -59,22 +59,18 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   // =========================
   useEffect(() => {
     const handleReceive = (data) => {
-      if (!data?.message) return;
+      if (!data || !data.message) return;
 
-      let msg;
+      const msg = data.message;
 
-      try {
-        msg =
-          typeof data.message === "string"
-            ? JSON.parse(data.message)
-            : data.message;
-      } catch (e) {
-        console.log("Parse error:", e);
+      // 🚨 check quan trọng
+      if (!msg || !msg._id) {
+        console.log("Invalid message:", msg);
         return;
       }
 
       setMessages((prev) => {
-        if (prev.some((m) => m._id === msg._id)) return prev;
+        if (prev.some((m) => m && m._id === msg._id)) return prev;
         return [...prev, msg];
       });
     };
@@ -146,7 +142,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         toUserId: otherUser?.userId?._id,
         conversationId,
         // message: JSON.stringify(saved) || "[file]",
-        message: JSON.stringify(saved),
+        message: saved,
       };
       console.log(payload.message);
 
