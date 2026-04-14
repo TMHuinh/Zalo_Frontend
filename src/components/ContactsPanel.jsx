@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Form, InputGroup, Button } from "react-bootstrap";
+import { Form, Button } from "react-bootstrap";
 import useNotificationStore from "../store/notificationStore";
 import AddFriendModal from "../components/AddFriendModal";
 import { FiUserPlus } from "react-icons/fi";
+import { HiUserGroup } from "react-icons/hi"; // 👈 thêm icon nhóm
 import "../css/contactsPanel.css";
 
 function ContactsPanel({ contactView, setContactView, onSearch }) {
@@ -12,7 +13,7 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
 
   const handleSearch = (value) => {
     setSearch(value);
-    onSearch?.(value); // 🔥 truyền xuống Content
+    onSearch?.(value);
   };
 
   const items = [
@@ -22,23 +23,76 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
   ];
 
   return (
-    <div className="p-2" style={{ background: "#f5f7fb", height: "100%" }}>
-      {/* 🔍 SEARCH */}
-      <InputGroup className="mb-3">
+    <div
+      className="p-3"
+      style={{
+        background: "#f1f5f9",
+        height: "100%",
+      }}
+    >
+      {/* 🔍 SEARCH (NEW UI) */}
+      <div className="d-flex align-items-center gap-2 mb-3">
         <Form.Control
-          placeholder="🔍 Tìm kiếm bạn bè..."
+          placeholder="Tìm kiếm bạn bè..."
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          style={{ borderRadius: "12px 0 0 12px" }}
+          style={{
+            borderRadius: 20,
+            height: 42,
+            border: "1px solid #e2e8f0",
+            boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
+          }}
+          onFocus={(e) =>
+            (e.target.style.boxShadow =
+              "0 0 0 2px rgba(99,102,241,0.3)")
+          }
+          onBlur={(e) =>
+            (e.target.style.boxShadow =
+              "inset 0 1px 2px rgba(0,0,0,0.05)")
+          }
         />
-        <button
-          className="add-friend-btn"
-          title="Thêm bạn"
+
+        {/* ➕ Thêm bạn */}
+        <Button
           onClick={() => setOpenModal(true)}
+          style={{
+            borderRadius: "50%",
+            width: 42,
+            height: 42,
+            background: "#6366f1",
+            border: "none",
+            transition: "0.2s",
+          }}
+          onMouseDown={(e) =>
+            (e.currentTarget.style.transform = "scale(0.9)")
+          }
+          onMouseUp={(e) =>
+            (e.currentTarget.style.transform = "scale(1)")
+          }
         >
-          <FiUserPlus size={16} />
-        </button>
-      </InputGroup>
+          <FiUserPlus />
+        </Button>
+
+        {/* 👥 Nhóm */}
+        <Button
+          style={{
+            borderRadius: "50%",
+            width: 42,
+            height: 42,
+            background: "#10b981",
+            border: "none",
+            transition: "0.2s",
+          }}
+          onMouseDown={(e) =>
+            (e.currentTarget.style.transform = "scale(0.9)")
+          }
+          onMouseUp={(e) =>
+            (e.currentTarget.style.transform = "scale(1)")
+          }
+        >
+          <HiUserGroup />
+        </Button>
+      </div>
 
       {/* MENU */}
       <div className="d-flex flex-column gap-2">
@@ -52,15 +106,21 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
               style={{
                 cursor: "pointer",
                 padding: "12px",
-                borderRadius: 14,
-                background: isActive ? "#e7f1ff" : "#fff",
+                borderRadius: 16,
+                background: isActive ? "#eef2ff" : "#fff",
                 boxShadow: isActive
-                  ? "0 4px 12px rgba(0,0,0,0.08)"
-                  : "0 2px 6px rgba(0,0,0,0.05)",
+                  ? "0 6px 16px rgba(99,102,241,0.25)"
+                  : "0 2px 8px rgba(0,0,0,0.06)",
                 transition: "all 0.2s ease",
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.02)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
               }}
             >
               <div style={{ fontSize: 18 }}>{item.icon}</div>

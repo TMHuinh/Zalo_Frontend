@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Form,
-  InputGroup,
   Button,
   Badge,
   Row,
@@ -13,6 +12,7 @@ import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
 import socket from "../socket/socket";
 import { FiUserPlus } from "react-icons/fi";
+import { HiUserGroup } from "react-icons/hi";
 
 function ChatList({ onSelectConversation, activeConversationId }) {
   const [search, setSearch] = useState("");
@@ -53,11 +53,6 @@ function ChatList({ onSelectConversation, activeConversationId }) {
 
   useEffect(() => {
     const handleReceive = async (data) => {
-      const msg =
-        typeof data.message === "string"
-          ? JSON.parse(data.message)
-          : data.message;
-
       const res = await conversationApi.getByUserId();
 
       const sorted = (res.data.result || []).sort(
@@ -94,12 +89,19 @@ function ChatList({ onSelectConversation, activeConversationId }) {
     return () => socket.off("receive_message", handleReceive);
   }, [activeConversationId]);
 
-  const filtered = (conversations || []).filter((c) => {
-    const otherUser = c.members?.find((m) => m.userId?._id !== currentUserId);
+  const filtered = useMemo(() => {
+    return (conversations || []).filter((c) => {
+      const otherUser = c.members?.find(
+        (m) => m.userId?._id !== currentUserId,
+      );
 
-    const name = otherUser?.userId?.fullName || "Unknown";
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
+      const name = otherUser?.userId?.fullName || "Unknown";
+      return name.toLowerCase().includes(search.toLowerCase());
+    });
+  }, [conversations, search]);
+
+  const recent = filtered.filter((c) => unread[c._id] > 0);
+  const others = filtered.filter((c) => !unread[c._id]);
 
   const renderAvatar = (user) => {
     if (user?.avatarUrl) {
@@ -107,9 +109,12 @@ function ChatList({ onSelectConversation, activeConversationId }) {
         <Image
           src={user.avatarUrl}
           roundedCircle
-          width={48}
-          height={48}
-          style={{ objectFit: "cover" }}
+          width={46}
+          height={46}
+          style={{
+            objectFit: "cover",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+          }}
         />
       );
     }
@@ -118,9 +123,9 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       <div
         className="d-flex align-items-center justify-content-center rounded-circle text-white"
         style={{
-          width: 48,
-          height: 48,
-          background: "linear-gradient(135deg, #6a11cb, #2575fc)",
+          width: 46,
+          height: 46,
+          background: "linear-gradient(135deg, #6366f1, #4f46e5)",
           fontWeight: "bold",
         }}
       >
@@ -129,117 +134,183 @@ function ChatList({ onSelectConversation, activeConversationId }) {
     );
   };
 
+  const renderItem = (conv) => {
+    const otherUser = conv.members?.find(
+      (m) => m.userId?._id !== currentUserId,
+    );
+
+    const user = otherUser?.userId;
+    const isActive = activeConversationId === conv._id;
+
+    return (
+      <div
+        key={conv._id}
+        onClick={() => {
+          setUnread((prev) => ({
+            ...prev,
+            [conv._id]: 0,
+          }));
+          onSelectConversation?.(conv);
+        }}
+        style={{
+          cursor: "pointer",
+          padding: "10px",
+          borderRadius: 16,
+          background: isActive ? "#eef2ff" : "#fff",
+          boxShadow: isActive
+            ? "0 6px 16px rgba(99,102,241,0.25)"
+            : "0 2px 8px rgba(0,0,0,0.06)",
+          transition: "all 0.2s ease",
+          transform: "scale(1)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.02)";
+          e.currentTarget.style.boxShadow =
+            "0 6px 16px rgba(0,0,0,0.1)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.boxShadow = isActive
+            ? "0 6px 16px rgba(99,102,241,0.25)"
+            : "0 2px 8px rgba(0,0,0,0.06)";
+        }}
+      >
+        <Row className="align-items-center">
+          <Col xs="auto">{renderAvatar(user)}</Col>
+
+          <Col>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>
+              {user?.fullName || "Unknown"}
+            </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                color: "#64748b",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {conv.lastMessageId?.content || "Chưa có tin nhắn"}
+            </div>
+          </Col>
+
+          <Col xs="auto">
+            {unread[conv._id] > 0 && (
+              <Badge
+                pill
+                bg="danger"
+                style={{
+                  fontSize: 11,
+                  padding: "5px 7px",
+                }}
+              >
+                {unread[conv._id] > 9 ? "9+" : unread[conv._id]}
+              </Badge>
+            )}
+          </Col>
+        </Row>
+      </div>
+    );
+  };
+
   return (
     <div
-      className="p-2"
+      className="p-3"
       style={{
-        background: "#f5f7fb",
+        background: "#f1f5f9",
         height: "100%",
         overflowY: "auto",
       }}
     >
       {/* SEARCH */}
-      <InputGroup className="mb-3">
+      <div className="d-flex align-items-center gap-2 mb-3">
         <Form.Control
-          placeholder="🔍 Tìm kiếm..."
+          placeholder="Tìm kiếm..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{
-            borderRadius: "12px 0 0 12px",
+            borderRadius: 20,
+            height: 42,
+            border: "1px solid #e2e8f0",
+            boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
           }}
+          onFocus={(e) =>
+            (e.target.style.boxShadow =
+              "0 0 0 2px rgba(99,102,241,0.3)")
+          }
+          onBlur={(e) =>
+            (e.target.style.boxShadow =
+              "inset 0 1px 2px rgba(0,0,0,0.05)")
+          }
         />
-        <button
-          className="add-friend-btn"
-          title="Thêm bạn"
+
+        <Button
           onClick={() => setOpenModal(true)}
+          style={{
+            borderRadius: "50%",
+            width: 42,
+            height: 42,
+            background: "#6366f1",
+            border: "none",
+            transition: "0.2s",
+          }}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          <FiUserPlus size={14} />
-        </button>
-      </InputGroup>
+          <FiUserPlus />
+        </Button>
 
-      {/* LIST */}
+        <Button
+          style={{
+            borderRadius: "50%",
+            width: 42,
+            height: 42,
+            background: "#10b981",
+            border: "none",
+            transition: "0.2s",
+          }}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
+          <HiUserGroup />
+        </Button>
+      </div>
+
+      {/* RECENT */}
+      {recent.length > 0 && (
+        <>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#64748b",
+              marginBottom: 8,
+            }}
+          >
+            Hoạt động gần đây
+          </div>
+          <div className="d-flex flex-column gap-2 mb-3">
+            {recent.map(renderItem)}
+          </div>
+        </>
+      )}
+
+      {/* ALL */}
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: "#64748b",
+          marginBottom: 8,
+        }}
+      >
+        Tất cả cuộc trò chuyện
+      </div>
+
       <div className="d-flex flex-column gap-2">
-        {filtered.map((conv) => {
-          const otherUser = conv.members?.find(
-            (m) => m.userId?._id !== currentUserId,
-          );
-
-          const user = otherUser?.userId;
-          const isActive = activeConversationId === conv._id;
-
-          return (
-            <div
-              key={conv._id}
-              onClick={() => {
-                setUnread((prev) => ({
-                  ...prev,
-                  [conv._id]: 0,
-                }));
-
-                onSelectConversation?.(conv);
-              }}
-              style={{
-                cursor: "pointer",
-                padding: "10px",
-                borderRadius: 14,
-                background: isActive ? "#e7f1ff" : "#fff",
-                boxShadow: isActive
-                  ? "0 4px 12px rgba(0,0,0,0.08)"
-                  : "0 2px 6px rgba(0,0,0,0.05)",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = "#f1f3f5";
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = "#fff";
-              }}
-            >
-              <Row className="align-items-center">
-                <Col xs="auto">{renderAvatar(user)}</Col>
-
-                <Col>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 15,
-                    }}
-                  >
-                    {user?.fullName || "Unknown"}
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "#6c757d",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: 180,
-                    }}
-                  >
-                    {conv.lastMessageId?.content || "Chưa có tin nhắn"}
-                  </div>
-                </Col>
-
-                <Col xs="auto">
-                  {unread[conv._id] > 0 && (
-                    <Badge
-                      pill
-                      bg="danger"
-                      style={{
-                        fontSize: 12,
-                        padding: "6px 8px",
-                      }}
-                    >
-                      {unread[conv._id] > 9 ? "9+" : unread[conv._id]}
-                    </Badge>
-                  )}
-                </Col>
-              </Row>
-            </div>
-          );
-        })}
+        {others.map(renderItem)}
       </div>
 
       {/* MODAL */}
