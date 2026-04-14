@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Image, Row, Col, Button, Card } from "react-bootstrap";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Image, Row, Col, Button, Card, Spinner } from "react-bootstrap";
 import friendshipApi from "../api/friendshipApi";
 import conversationApi from "../api/conversationApi";
 import socket from "../socket/socket";
@@ -7,12 +7,41 @@ import useNotificationStore from "../store/notificationStore";
 
 function ContactsContent({ view, search = "", onSelectConversation }) {
   const [friends, setFriends] = useState([]);
+  const [groupedFriends, setGroupedFriends] = useState({});
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   const { clearNewRequest } = useNotificationStore();
+
+  // ===== Empty State =====
+  const EmptyState = ({ text }) => (
+    <div
+      className="d-flex flex-column align-items-center justify-content-center text-center"
+      style={{ padding: "40px 20px", color: "#94a3b8" }}
+    >
+      <div
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg,#e2e8f0,#cbd5f5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+          fontSize: 28,
+        }}
+      >
+        📭
+      </div>
+      <div className="fw-semibold" style={{ color: "#475569" }}>
+        {text}
+      </div>
+    </div>
+  );
 
   const formatTimeAgo = (date) => {
     if (!date) return "";
-
     const now = new Date();
     const past = new Date(date);
     const diff = Math.floor((now - past) / 1000);
@@ -23,34 +52,44 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return `${Math.floor(diff / 86400)} ngày trước`;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (view === "friends") {
-          const res = await friendshipApi.getFriends();
-          const data = res.data?.data;
+  const fetchFriends = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await friendshipApi.getFriends();
+      const data = res.data?.data;
 
-          const flat = Array.isArray(data)
-            ? data
-            : Object.values(data || {}).flat();
-
-          setFriends(flat);
-        }
-
-        if (view === "requests") {
-          const res = await friendshipApi.getPending();
-          setRequests(res.data?.data || []);
-        }
-      } catch (err) {
-        console.log(err);
+      if (!Array.isArray(data)) {
+        setGroupedFriends(data || {});
+        setFriends(Object.values(data || {}).flat());
+      } else {
+        setFriends(data);
       }
-    };
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    fetchData();
-  }, [view]);
+  const fetchRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await friendshipApi.getPending();
+      setRequests(res.data?.data || []);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    socket.on("notification:new", (noti) => {
+    if (view === "friends") fetchFriends();
+    if (view === "requests") fetchRequests();
+  }, [view, fetchFriends, fetchRequests]);
+
+  useEffect(() => {
+    const handleNotification = (noti) => {
       const data = noti?.data || {};
 
       if (data.status === "pending") {
@@ -62,58 +101,54 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
             avatarUrl: data.requesterAvatar,
           },
         };
-
         setRequests((prev) => [newRequest, ...prev]);
       }
 
       if (data.status === "accepted" || data.status === "rejected") {
-        setRequests((prev) => prev.filter((r) => r._id !== data.friendshipId));
+        setRequests((prev) =>
+          prev.filter((r) => r._id !== data.friendshipId)
+        );
       }
-    });
+    };
 
-    return () => socket.off("notification:new");
+    socket.on("notification:new", handleNotification);
+    return () => socket.off("notification:new", handleNotification);
   }, []);
 
   useEffect(() => {
-    socket.on("user_online", (userId) => {
+    const online = (userId) => {
       setFriends((prev) =>
-        prev.map((f) => (f._id === userId ? { ...f, isOnline: true } : f)),
+        prev.map((f) =>
+          f._id === userId ? { ...f, isOnline: true } : f
+        )
       );
-    });
+    };
 
-    socket.on("user_offline", (userId) => {
+    const offline = (userId) => {
       setFriends((prev) =>
-        prev.map((f) => (f._id === userId ? { ...f, isOnline: false } : f)),
+        prev.map((f) =>
+          f._id === userId ? { ...f, isOnline: false } : f
+        )
       );
-    });
+    };
+
+    socket.on("user_online", online);
+    socket.on("user_offline", offline);
 
     return () => {
-      socket.off("user_online");
-      socket.off("user_offline");
+      socket.off("user_online", online);
+      socket.off("user_offline", offline);
     };
   }, []);
 
   useEffect(() => {
-    if (view === "requests") {
-      clearNewRequest();
-    }
+    if (view === "requests") clearNewRequest();
   }, [view]);
 
   useEffect(() => {
-    socket.on("new_conversation", () => {
-      friendshipApi.getFriends().then((res) => {
-        const data = res.data?.data;
-
-        const flat = Array.isArray(data)
-          ? data
-          : Object.values(data || {}).flat();
-
-        setFriends(flat);
-      });
-    });
-
-    return () => socket.off("new_conversation");
-  }, []);
+    socket.on("new_conversation", fetchFriends);
+    return () => socket.off("new_conversation", fetchFriends);
+  }, [fetchFriends]);
 
   const handleMessage = async (friendId) => {
     try {
@@ -122,8 +157,8 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
 
       const found = conversations.find((c) =>
         c.members?.some(
-          (m) => m.userId?._id === friendId || m.userId === friendId,
-        ),
+          (m) => m.userId?._id === friendId || m.userId === friendId
+        )
       );
 
       if (found) onSelectConversation?.(found);
@@ -132,16 +167,31 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     }
   };
 
-  const keyword = search.toLowerCase();
+  const handleAccept = async (id) => {
+    await friendshipApi.acceptRequest(id);
+    setRequests((prev) => prev.filter((r) => r._id !== id));
+    fetchFriends();
+  };
 
-  const filteredFriends = friends.filter((f) =>
-    f.fullName?.toLowerCase().includes(keyword),
-  );
+  const handleReject = async (id) => {
+    await friendshipApi.rejectRequest(id);
+    setRequests((prev) => prev.filter((r) => r._id !== id));
+  };
 
-  const filteredRequests = requests.filter((r) => {
-    const user = r.requesterId || { fullName: r.requesterName };
-    return user.fullName.toLowerCase().includes(keyword);
-  });
+  const keyword = (search || "").toLowerCase();
+
+  const filteredGrouped = useMemo(() => {
+    const result = {};
+    Object.keys(groupedFriends).forEach((letter) => {
+      const filtered = groupedFriends[letter].filter((f) =>
+        f.fullName?.toLowerCase().includes(keyword)
+      );
+      if (filtered.length) result[letter] = filtered;
+    });
+    return result;
+  }, [groupedFriends, keyword]);
+
+  const letters = Object.keys(filteredGrouped);
 
   const renderAvatar = (user) => (
     <div style={{ position: "relative" }}>
@@ -149,14 +199,26 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
         <Image
           src={user.avatarUrl}
           roundedCircle
-          width={50}
-          height={50}
-          style={{ objectFit: "cover" }}
+          width={48}
+          height={48}
+          style={{
+            objectFit: "cover",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          }}
         />
       ) : (
         <div
-          className="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle"
-          style={{ width: 50, height: 50 }}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 600,
+            color: "white",
+            background: "linear-gradient(135deg,#6366f1,#3b82f6)",
+          }}
         >
           {user?.fullName?.charAt(0) || "U"}
         </div>
@@ -168,8 +230,8 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
             position: "absolute",
             bottom: 2,
             right: 2,
-            width: 12,
-            height: 12,
+            width: 10,
+            height: 10,
             backgroundColor: "#22c55e",
             borderRadius: "50%",
             border: "2px solid white",
@@ -179,68 +241,151 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     </div>
   );
 
-  const handleAccept = async (id) => {
-    await friendshipApi.acceptRequest(id);
-    setRequests((prev) => prev.filter((r) => r._id !== id));
-  };
+  if (loading) {
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ height: 200 }}
+      >
+        <Spinner animation="border" />
+      </div>
+    );
+  }
 
-  const handleReject = async (id) => {
-    await friendshipApi.rejectRequest(id);
-    setRequests((prev) => prev.filter((r) => r._id !== id));
-  };
-
+  // ===== FRIENDS =====
   if (view === "friends") {
     return (
-      <div className="p-3">
+      <div className="p-3" style={{ background: "#f8fafc" }}>
         <h5 className="mb-3 fw-bold">Bạn bè</h5>
-        {filteredFriends.map((user) => (
-          <Card key={user._id} className="mb-2 border-0 shadow-sm rounded-4">
-            <Card.Body>
-              <Row className="align-items-center">
-                <Col xs="auto">{renderAvatar(user)}</Col>
-                <Col>
-                  <div className="fw-semibold">{user.fullName}</div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: user.isOnline ? "#22c55e" : "#6c757d",
-                    }}
-                  >
-                    {user.isOnline ? "Đang hoạt động" : "Offline"}
-                  </div>
-                </Col>
-                <Col xs="auto">
-                  <Button size="sm" onClick={() => handleMessage(user._id)}>
-                    Nhắn tin
-                  </Button>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
+
+        {letters.length === 0 && (
+          <EmptyState text="Danh sách bạn bè trống" />
+        )}
+
+        {letters.map((letter) => (
+          <div key={letter}>
+            <div
+              style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "#f8fafc",
+                padding: "6px 4px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#475569",
+              }}
+            >
+              {letter}
+            </div>
+
+            {filteredGrouped[letter].map((user) => (
+              <Card
+                key={user._id}
+                className="mb-2 border-0"
+                style={{
+                  borderRadius: 16,
+                  background: "white",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                }}
+              >
+                <Card.Body>
+                  <Row className="align-items-center">
+                    <Col xs="auto">{renderAvatar(user)}</Col>
+                    <Col>
+                      <div className="fw-semibold">{user.fullName}</div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: user.isOnline
+                            ? "#22c55e"
+                            : "#94a3b8",
+                        }}
+                      >
+                        {user.isOnline
+                          ? "Đang hoạt động"
+                          : "Offline"}
+                      </div>
+                    </Col>
+                    <Col xs="auto">
+                      <Button
+                        size="sm"
+                        style={{
+                          borderRadius: 999,
+                          background:
+                            "linear-gradient(135deg,#3b82f6,#6366f1)",
+                          border: "none",
+                        }}
+                        onClick={() => handleMessage(user._id)}
+                      >
+                        Nhắn tin
+                      </Button>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            ))}
+          </div>
         ))}
       </div>
     );
   }
 
+  // ===== REQUESTS =====
   if (view === "requests") {
     return (
-      <div className="p-3">
+      <div className="p-3" style={{ background: "#f8fafc" }}>
         <h5 className="mb-3 fw-bold">Lời mời kết bạn</h5>
-        {filteredRequests.map((r) => {
-          const user = r.requesterId || { fullName: r.requesterName };
+
+        {requests.length === 0 && (
+          <EmptyState text="Chưa có lời mời kết bạn" />
+        )}
+
+        {requests.map((r) => {
+          const user = r.requesterId || {
+            fullName: r.requesterName,
+            avatarUrl: r.requesterAvatar,
+          };
 
           return (
-            <Card key={r._id} className="mb-3">
+            <Card
+              key={r._id}
+              className="mb-3 border-0"
+              style={{
+                borderRadius: 16,
+                background: "white",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
               <Card.Body>
                 <Row className="align-items-center">
                   <Col xs="auto">{renderAvatar(user)}</Col>
                   <Col>
-                    <div>{user.fullName}</div>
-                    <div>{formatTimeAgo(r.createdAt)}</div>
+                    <div className="fw-semibold">{user.fullName}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>
+                      {formatTimeAgo(r.createdAt)}
+                    </div>
                   </Col>
-                  <Col xs="auto">
-                    <Button onClick={() => handleAccept(r._id)}>Đồng ý</Button>
-                    <Button onClick={() => handleReject(r._id)}>Từ chối</Button>
+                  <Col xs="auto" className="d-flex gap-2">
+                    <Button
+                      size="sm"
+                      style={{
+                        borderRadius: 999,
+                        background: "#22c55e",
+                        border: "none",
+                      }}
+                      onClick={() => handleAccept(r._id)}
+                    >
+                      Đồng ý
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="light"
+                      style={{ borderRadius: 999 }}
+                      onClick={() => handleReject(r._id)}
+                    >
+                      Từ chối
+                    </Button>
                   </Col>
                 </Row>
               </Card.Body>
