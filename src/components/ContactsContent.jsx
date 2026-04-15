@@ -105,9 +105,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
       }
 
       if (data.status === "accepted" || data.status === "rejected") {
-        setRequests((prev) =>
-          prev.filter((r) => r._id !== data.friendshipId)
-        );
+        setRequests((prev) => prev.filter((r) => r._id !== data.friendshipId));
       }
     };
 
@@ -118,17 +116,13 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
   useEffect(() => {
     const online = (userId) => {
       setFriends((prev) =>
-        prev.map((f) =>
-          f._id === userId ? { ...f, isOnline: true } : f
-        )
+        prev.map((f) => (f._id === userId ? { ...f, isOnline: true } : f)),
       );
     };
 
     const offline = (userId) => {
       setFriends((prev) =>
-        prev.map((f) =>
-          f._id === userId ? { ...f, isOnline: false } : f
-        )
+        prev.map((f) => (f._id === userId ? { ...f, isOnline: false } : f)),
       );
     };
 
@@ -150,18 +144,29 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return () => socket.off("new_conversation", fetchFriends);
   }, [fetchFriends]);
 
+  // ===== FIX LỖI NHẢY VÀO GROUP =====
   const handleMessage = async (friendId) => {
     try {
       const res = await conversationApi.getByUserId();
       const conversations = res.data.result || res.data.data || [];
 
-      const found = conversations.find((c) =>
-        c.members?.some(
-          (m) => m.userId?._id === friendId || m.userId === friendId
-        )
-      );
+      const found = conversations.find((c) => {
+        // 1. Kiểm tra xem có phải là nhóm không. Nếu là nhóm -> Bỏ qua
+        const isGroup = c.type === "group" || c.members?.length > 2;
+        if (isGroup) return false;
 
-      if (found) onSelectConversation?.(found);
+        // 2. Nếu là chat 1-1, kiểm tra xem có chứa friendId này không
+        return c.members?.some(
+          (m) => m.userId?._id === friendId || m.userId === friendId,
+        );
+      });
+
+      if (found) {
+        onSelectConversation?.(found);
+      } else {
+        // Tuỳ chọn: Nếu không tìm thấy cuộc trò chuyện 1-1, bạn có thể gọi API tạo cuộc trò chuyện mới tại đây
+        console.log("Chưa có cuộc trò chuyện 1-1 với user này.");
+      }
     } catch (err) {
       console.log(err);
     }
@@ -184,7 +189,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     const result = {};
     Object.keys(groupedFriends).forEach((letter) => {
       const filtered = groupedFriends[letter].filter((f) =>
-        f.fullName?.toLowerCase().includes(keyword)
+        f.fullName?.toLowerCase().includes(keyword),
       );
       if (filtered.length) result[letter] = filtered;
     });
@@ -258,9 +263,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
       <div className="p-3" style={{ background: "#f8fafc" }}>
         <h5 className="mb-3 fw-bold">Bạn bè</h5>
 
-        {letters.length === 0 && (
-          <EmptyState text="Danh sách bạn bè trống" />
-        )}
+        {letters.length === 0 && <EmptyState text="Danh sách bạn bè trống" />}
 
         {letters.map((letter) => (
           <div key={letter}>
@@ -297,14 +300,10 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
                       <div
                         style={{
                           fontSize: 12,
-                          color: user.isOnline
-                            ? "#22c55e"
-                            : "#94a3b8",
+                          color: user.isOnline ? "#22c55e" : "#94a3b8",
                         }}
                       >
-                        {user.isOnline
-                          ? "Đang hoạt động"
-                          : "Offline"}
+                        {user.isOnline ? "Đang hoạt động" : "Offline"}
                       </div>
                     </Col>
                     <Col xs="auto">
@@ -312,8 +311,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
                         size="sm"
                         style={{
                           borderRadius: 999,
-                          background:
-                            "linear-gradient(135deg,#3b82f6,#6366f1)",
+                          background: "linear-gradient(135deg,#3b82f6,#6366f1)",
                           border: "none",
                         }}
                         onClick={() => handleMessage(user._id)}
@@ -337,9 +335,7 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
       <div className="p-3" style={{ background: "#f8fafc" }}>
         <h5 className="mb-3 fw-bold">Lời mời kết bạn</h5>
 
-        {requests.length === 0 && (
-          <EmptyState text="Chưa có lời mời kết bạn" />
-        )}
+        {requests.length === 0 && <EmptyState text="Chưa có lời mời kết bạn" />}
 
         {requests.map((r) => {
           const user = r.requesterId || {

@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { Form, Button } from "react-bootstrap";
+import { Form, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 import useNotificationStore from "../store/notificationStore";
 import AddFriendModal from "../components/AddFriendModal";
+import CreateGroupModal from "./CreateGroupModal";
 import { FiUserPlus } from "react-icons/fi";
-import { HiUserGroup } from "react-icons/hi"; // 👈 thêm icon nhóm
+import { HiUserGroup } from "react-icons/hi";
+import toast, { Toaster } from "react-hot-toast";
 import "../css/contactsPanel.css";
 
 function ContactsPanel({ contactView, setContactView, onSearch }) {
   const [search, setSearch] = useState("");
   const [openModal, setOpenModal] = useState(false);
+  const [openGroupModal, setOpenGroupModal] = useState(false);
   const { hasNewRequest } = useNotificationStore();
 
   const handleSearch = (value) => {
@@ -30,6 +33,13 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
         height: "100%",
       }}
     >
+      {/* 🔥 FIX Z-INDEX Ở ĐÂY ĐỂ NỔI LÊN TRÊN MODAL */}
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        containerStyle={{ zIndex: 99999 }}
+      />
+
       {/* 🔍 SEARCH (NEW UI) */}
       <div className="d-flex align-items-center gap-2 mb-3">
         <Form.Control
@@ -43,55 +53,56 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
             boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
           }}
           onFocus={(e) =>
-            (e.target.style.boxShadow =
-              "0 0 0 2px rgba(99,102,241,0.3)")
+            (e.target.style.boxShadow = "0 0 0 2px rgba(99,102,241,0.3)")
           }
           onBlur={(e) =>
-            (e.target.style.boxShadow =
-              "inset 0 1px 2px rgba(0,0,0,0.05)")
+            (e.target.style.boxShadow = "inset 0 1px 2px rgba(0,0,0,0.05)")
           }
         />
 
-        {/* ➕ Thêm bạn */}
-        <Button
-          onClick={() => setOpenModal(true)}
-          style={{
-            borderRadius: "50%",
-            width: 42,
-            height: 42,
-            background: "#6366f1",
-            border: "none",
-            transition: "0.2s",
-          }}
-          onMouseDown={(e) =>
-            (e.currentTarget.style.transform = "scale(0.9)")
-          }
-          onMouseUp={(e) =>
-            (e.currentTarget.style.transform = "scale(1)")
-          }
+        {/* Nút Thêm bạn */}
+        <OverlayTrigger
+          placement="bottom"
+          overlay={<Tooltip id="tooltip-add-friend">Thêm bạn</Tooltip>}
         >
-          <FiUserPlus />
-        </Button>
+          <Button
+            onClick={() => setOpenModal(true)}
+            style={{
+              borderRadius: "50%",
+              width: 42,
+              height: 42,
+              background: "#6366f1",
+              border: "none",
+              transition: "0.2s",
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <FiUserPlus />
+          </Button>
+        </OverlayTrigger>
 
-        {/* 👥 Nhóm */}
-        <Button
-          style={{
-            borderRadius: "50%",
-            width: 42,
-            height: 42,
-            background: "#10b981",
-            border: "none",
-            transition: "0.2s",
-          }}
-          onMouseDown={(e) =>
-            (e.currentTarget.style.transform = "scale(0.9)")
-          }
-          onMouseUp={(e) =>
-            (e.currentTarget.style.transform = "scale(1)")
-          }
+        {/* Nút Tạo nhóm */}
+        <OverlayTrigger
+          placement="bottom"
+          overlay={<Tooltip id="tooltip-create-group">Tạo nhóm</Tooltip>}
         >
-          <HiUserGroup />
-        </Button>
+          <Button
+            onClick={() => setOpenGroupModal(true)}
+            style={{
+              borderRadius: "50%",
+              width: 42,
+              height: 42,
+              background: "#10b981",
+              border: "none",
+              transition: "0.2s",
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <HiUserGroup />
+          </Button>
+        </OverlayTrigger>
       </div>
 
       {/* MENU */}
@@ -155,6 +166,15 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
 
       {/* MODAL */}
       {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
+
+      {openGroupModal && (
+        <CreateGroupModal
+          onClose={() => setOpenGroupModal(false)}
+          onCreated={() => {
+            setOpenGroupModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
