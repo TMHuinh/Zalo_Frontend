@@ -14,76 +14,60 @@ function Chat() {
   const [activeConversation, setActiveConversation] = useState(null);
   const [contactView, setContactView] = useState("friends");
   const [search, setSearch] = useState("");
-
-  // 🔥 state chính (nguồn dữ liệu duy nhất)
   const [conversations, setConversations] = useState([]);
 
   const currentUserId = getUserIdFromToken();
 
-  // =========================
   // JOIN SOCKET
-  // =========================
   useEffect(() => {
     if (currentUserId) {
       socket.emit("join", currentUserId);
     }
   }, [currentUserId]);
 
-  // =========================
-  // FETCH CONVERSATIONS (QUAN TRỌNG)
-  // =========================
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const res = await conversationApi.getConversations();
-        setConversations(res.data.result);
-      } catch (err) {
-        console.log(err);
-      }
-    };
+  // FETCH CONVERSATIONS (FIXED TÊN HÀM)
+  const fetchConversations = async () => {
+    try {
+      // Sửa tên hàm từ getConversations thành getByUserId
+      const res = await conversationApi.getByUserId(); 
+      // API của bạn trả về mảng nằm trong res.data.result
+      setConversations(res.data.result || []); 
+    } catch (err) {
+      console.error("Lỗi khi tải danh sách chat:", err);
+    }
+  };
 
+  useEffect(() => {
     fetchConversations();
   }, []);
 
-  // =========================
   // RESET KHI SANG CONTACT
-  // =========================
   useEffect(() => {
     if (tab === "contacts") {
       setActiveConversation(null);
     }
   }, [tab]);
 
-  // =========================
-  // 🔥 UPDATE KHI CÓ MESSAGE (SEND + RECEIVE)
-  // =========================
+  // UPDATE KHI CÓ MESSAGE (SEND + RECEIVE)
   const handleNewMessage = ({ conversationId, message }) => {
     setConversations((prev) => {
       const updated = [...prev];
-
       const index = updated.findIndex((c) => c._id === conversationId);
 
-      // ❌ nếu chưa có → thêm mới (fix bug của bạn)
       if (index === -1) {
-        return [
-          {
-            _id: conversationId,
-            lastMessageId: message,
-            updatedAt: new Date().toISOString(),
-          },
-          ...prev,
-        ];
+        // Nếu là cuộc hội thoại mới hoàn toàn
+        fetchConversations(); // Tải lại toàn bộ cho chắc chắn dữ liệu đồng bộ
+        return prev;
       }
 
       const conv = updated[index];
-
       const updatedConv = {
         ...conv,
         lastMessageId: message,
         updatedAt: new Date().toISOString(),
       };
 
-      // 👉 đưa lên đầu list (giống Messenger/Zalo)
+      // Đưa lên đầu danh sách
       updated.splice(index, 1);
       updated.unshift(updatedConv);
 
@@ -91,35 +75,25 @@ function Chat() {
     });
   };
 
-  // =========================
-  // SOCKET RECEIVE GLOBAL (OPTIONAL - XỊN HƠN)
-  // =========================
+  // SOCKET RECEIVE
   useEffect(() => {
     const handleReceive = (data) => {
-      // data nên chứa: conversationId + message
       if (!data?.conversationId || !data?.message) return;
-
       handleNewMessage(data);
     };
 
     socket.on("receive_message", handleReceive);
-
     return () => socket.off("receive_message", handleReceive);
   }, []);
 
-  // =========================
-  // RENDER
-  // =========================
   return (
     <div className="chat-layout">
       <Sidebar tab={tab} setTab={setTab} />
 
-      {/* LEFT */}
       <div className="chat-left-column">
         {tab === "chat" ? (
           <ChatList
             conversations={conversations}
-            setConversations={setConversations}
             onSelectConversation={setActiveConversation}
             activeConversationId={activeConversation?._id}
           />
@@ -132,7 +106,6 @@ function Chat() {
         )}
       </div>
 
-      {/* RIGHT */}
       <div className="chat-right-column">
         {tab === "chat" ? (
           activeConversation ? (
@@ -140,7 +113,7 @@ function Chat() {
               key={activeConversation._id}
               conversation={activeConversation}
               currentUserId={currentUserId}
-              onNewMessage={handleNewMessage} // 🔥 QUAN TRỌNG
+              onNewMessage={handleNewMessage}
             />
           ) : (
             <div className="empty-state">
