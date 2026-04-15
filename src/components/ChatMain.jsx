@@ -26,11 +26,10 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   const [menuMessageId, setMenuMessageId] = useState(null);
 
   const [chatPartner, setChatPartner] = useState(null);
-
   const [forwardModal, setForwardModal] = useState(false);
-  const [forwardContent, setForwardContent] = useState(null);
   const [allConversations, setAllConversations] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [forwardContent, setForwardContent] = useState(null);
 
   const [confirmModal, setConfirmModal] = useState({
     show: false,
@@ -106,28 +105,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
   const getUserColor = (userId) => {
     if (!userId) return "#0084ff";
-    const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33A1",
-      "#33FFF6",
-      "#FF8333",
-      "#8D33FF",
-      "#33FF8A",
-      "#FF3333",
-      "#00A8FF",
-      "#9C27B0",
-      "#4CAF50",
-      "#E91E63",
-      "#FF9800",
-      "#009688",
-      "#673AB7",
-      "#FFC107",
-      "#795548",
-      "#607D8B",
-    ];
+    const colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33A1", "#33FFF6", "#FF8333", "#8D33FF", "#33FF8A", "#FF3333", "#00A8FF", "#9C27B0", "#4CAF50", "#E91E63", "#FF9800", "#009688", "#673AB7", "#FFC107", "#795548", "#607D8B"];
     let hash = 5381;
     for (let i = 0; i < userId.length; i++)
       hash = (hash * 33) ^ userId.charCodeAt(i);
@@ -146,20 +124,11 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   }, [messages]);
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!conversationId) return;
-      try {
-        const res = await messageApi.getMessages(conversationId);
-        setMessages(res.data.result.data.reverse());
-      } catch (err) {
-        console.error("Fetch error:", err);
-      }
-    };
-    fetchMessages();
-  }, [conversationId]);
-
-  useEffect(() => {
     if (!conversationId) return;
+    messageApi
+      .getMessages(conversationId)
+      .then((res) => setMessages(res.data.result.data.reverse()))
+      .catch(console.error);
     socket.emit("join_conversation", conversationId);
 
     const handleReceive = (data) => {
@@ -172,7 +141,6 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
       );
     };
-
     const handleRecalled = ({ messageId }) =>
       setMessages((prev) =>
         prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)),
@@ -222,9 +190,10 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
     try {
       if (type === "revoke") {
         const res = await messageApi.revokeMessage(msg._id);
+        const updatedMsg = res.data.result || res.data;
         setMessages((prev) =>
           prev.map((m) =>
-            m._id === res.data.result._id ? res.data.result : m,
+            m._id === updatedMsg._id ? updatedMsg : m,
           ),
         );
         const recipients = conversation.members
@@ -264,12 +233,17 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
   const handleSendForward = async (targetConvId) => {
     if (!forwardContent) return;
-    const formData = new FormData();
-    formData.append("conversationId", targetConvId);
-    formData.append("senderId", currentUserId);
-    formData.append("content", forwardContent.content || "");
+    
+    // Sử dụng Object JSON thay vì FormData để chuyển tiếp mượt mà hơn
+    const forwardPayload = {
+        conversationId: targetConvId,
+        senderId: currentUserId,
+        content: forwardContent.content || "",
+        attachments: forwardContent.attachments || []
+    };
+
     try {
-      await messageApi.sendMessage(formData);
+      await messageApi.sendMessage(forwardPayload);
       setForwardModal(false);
       toast.success("Chuyển tiếp thành công!");
     } catch (err) {
@@ -299,17 +273,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                   boxShadow: "0 4px 10px rgba(0, 114, 255, 0.3)",
                 }}
               >
-                <svg
-                  stroke="currentColor"
-                  fill="currentColor"
-                  strokeWidth="0"
-                  viewBox="0 0 20 20"
-                  height="24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
-                </svg>
+                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 20 20" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
               </div>
             ) : chatPartner?.avatarUrl ? (
               <img src={chatPartner.avatarUrl} alt="" className="main-avatar" />
@@ -359,8 +323,9 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
             : null;
           const isLastOfBlock = senderId !== nextSenderId;
 
-          // KIỂM TRA TIN NHẮN CÓ CHỈ CHỨA HÌNH ẢNH HAY KHÔNG
+          // 🔥 CẢI TIẾN LOGIC: Nếu đã thu hồi (isRecalled) thì KHÔNG tính là only image nữa
           const isOnlyImage =
+            !msg.isRecalled && 
             !msg.content &&
             msg.attachments?.length > 0 &&
             msg.attachments.every((f) => f.type === "image");
@@ -398,7 +363,6 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                         : {}
                     }
                   >
-                    {/* SỬA LỖI TẠI ĐÂY: Đã bỏ điều kiện !isOnlyImage để tên luôn hiển thị trong nhóm chat */}
                     {isGroup && !isMe && isLastOfBlock && (
                       <span
                         className="sender-label-zalo"
@@ -416,6 +380,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                     )}
 
                     {msg.isRecalled ? (
+                      // KHI THU HỒI SẼ HIỆN RA KHUNG BÌNH THƯỜNG
                       <div className="recalled-msg">
                         🚫 Tin nhắn đã được thu hồi
                       </div>
@@ -512,6 +477,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         <div ref={bottomRef} />
       </div>
 
+      {/* FOOTER */}
       <div className="chat-footer-modern">
         {preview.length > 0 && (
           <div className="preview-bar-modern">
@@ -594,6 +560,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         </div>
       </div>
 
+      {/* MODAL FORWARD */}
       <Modal
         show={forwardModal}
         onHide={() => setForwardModal(false)}
