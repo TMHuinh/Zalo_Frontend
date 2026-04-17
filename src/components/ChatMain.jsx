@@ -3,6 +3,7 @@ import socket from "../socket/socket";
 import messageApi from "../api/messageApi";
 import conversationApi from "../api/conversationApi";
 import userApi from "../api/userApi";
+import StickerPicker from "../components/StickerPicker";
 import {
   FiPaperclip,
   FiSend,
@@ -41,6 +42,54 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   const conversationId = conversation?._id;
   const isGroup =
     conversation?.type === "group" || conversation?.members?.length > 2;
+  // ==== xử lý sticker===========================
+  const handleSendSticker = async (stickerUrl) => {
+    if (!conversationId) return;
+
+    const payload = {
+      conversationId,
+      senderId: currentUserId,
+      content: stickerUrl,
+      type: "sticker",
+    };
+
+    try {
+      const res = await messageApi.sendMessage(payload);
+      const saved = res.data.result;
+
+      // update UI
+      setMessages((prev) => [...prev, saved]);
+
+      const isGroup =
+        conversation?.type === "group" || conversation?.members?.length > 2;
+
+      if (isGroup) {
+        // ✅ CHAT NHÓM
+        socket.emit("send_group_message", {
+          groupId: conversationId,
+          userId: currentUserId,
+          message: JSON.stringify(saved),
+        });
+      } else {
+        // ✅ CHAT ĐƠN
+        const recipient = conversation.members.find(
+          (m) => m.userId?._id !== currentUserId,
+        )?.userId?._id;
+
+        if (!recipient) return;
+
+        socket.emit("send_message", {
+          userId: currentUserId,
+          toUserId: recipient, // 🔥 chỉ 1 user
+          message: JSON.stringify(saved),
+        });
+      }
+
+      onNewMessage?.({ conversationId, message: saved });
+    } catch (err) {
+      toast.error("Không thể gửi sticker");
+    }
+  };
 
   // ===== QUẢN LÝ NGƯỜI CHAT VÀ TRẠNG THÁI ONLINE =====
   useEffect(() => {
@@ -105,7 +154,28 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
   const getUserColor = (userId) => {
     if (!userId) return "#0084ff";
-    const colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33A1", "#33FFF6", "#FF8333", "#8D33FF", "#33FF8A", "#FF3333", "#00A8FF", "#9C27B0", "#4CAF50", "#E91E63", "#FF9800", "#009688", "#673AB7", "#FFC107", "#795548", "#607D8B"];
+    const colors = [
+      "#FF5733",
+      "#33FF57",
+      "#3357FF",
+      "#F333FF",
+      "#FF33A1",
+      "#33FFF6",
+      "#FF8333",
+      "#8D33FF",
+      "#33FF8A",
+      "#FF3333",
+      "#00A8FF",
+      "#9C27B0",
+      "#4CAF50",
+      "#E91E63",
+      "#FF9800",
+      "#009688",
+      "#673AB7",
+      "#FFC107",
+      "#795548",
+      "#607D8B",
+    ];
     let hash = 5381;
     for (let i = 0; i < userId.length; i++)
       hash = (hash * 33) ^ userId.charCodeAt(i);
@@ -131,52 +201,98 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       .catch(console.error);
     socket.emit("join_conversation", conversationId);
 
-    const handleReceive = (data) => {
+
+    const handleReceivePrivate = (data) => {
       let msg =
         typeof data.message === "string"
           ? JSON.parse(data.message)
           : data.message;
-      if (!msg || !msg._id || data.conversationId !== conversationId) return;
+
+      if (!msg || !msg._id) return;
+      // 🔥 LỌC THEO conversation
+      if (msg.conversationId !== conversationId) return;
+
       setMessages((prev) =>
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
       );
     };
+
+    const handleReceiveGroup = (data) => {
+      let msg =
+        typeof data.message === "string"
+          ? JSON.parse(data.message)
+          : data.message;
+
+      if (!msg || !msg._id) return;
+      // 🔥 dùng groupId
+      if (data.groupId !== conversationId) return;
+
+      setMessages((prev) =>
+        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
+      );
+    };
+
     const handleRecalled = ({ messageId }) =>
       setMessages((prev) =>
         prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)),
       );
 
-    socket.on("receive_message", handleReceive);
+    // socket.on("receive_message", handleReceive);
+    socket.on("receive_message", handleReceivePrivate);
+    socket.on("receive_group_message", handleReceiveGroup);
     socket.on("message_recalled", handleRecalled);
 
     return () => {
       socket.emit("leave_conversation", conversationId);
-      socket.off("receive_message", handleReceive);
+      // socket.off("receive_message", handleReceive);
+      socket.off("receive_message", handleReceivePrivate);
+      socket.off("receive_group_message", handleReceiveGroup);
       socket.off("message_recalled", handleRecalled);
     };
   }, [conversationId]);
 
   const handleSend = async () => {
     if (!conversationId || (!input.trim() && files.length === 0)) return;
+
     const formData = new FormData();
     formData.append("conversationId", conversationId);
     formData.append("senderId", currentUserId);
     formData.append("content", input);
     files.forEach((file) => formData.append("files", file));
+
     try {
       const res = await messageApi.sendMessage(formData);
       const saved = res.data.result;
+
+      // update UI trước (optimistic)
       setMessages((prev) => [...prev, saved]);
-      const recipients = conversation.members
-        .filter((m) => m.userId._id !== currentUserId)
-        .map((m) => m.userId._id);
-      socket.emit("send_message", {
-        userId: currentUserId,
-        toUserId: recipients,
-        conversationId,
-        message: JSON.stringify(saved),
-      });
+
+      // 🔥 PHÂN BIỆT CHAT ĐƠN / GROUP
+      const isGroup =
+        conversation?.type === "group" || conversation?.members?.length > 2;
+
+      if (isGroup) {
+        // ✅ CHAT GROUP
+        socket.emit("send_group_message", {
+          groupId: conversationId,
+          userId: currentUserId,
+          message: JSON.stringify(saved),
+        });
+      } else {
+        // ✅ CHAT ĐƠN
+        const recipient = conversation.members.find(
+          (m) => m.userId._id !== currentUserId,
+        )?.userId._id;
+
+        socket.emit("send_message", {
+          userId: currentUserId,
+          toUserId: recipient, // 🔥 chỉ 1 user
+          message: JSON.stringify(saved),
+        });
+      }
+
       onNewMessage?.({ conversationId, message: saved });
+
       setInput("");
       setFiles([]);
       setPreview([]);
@@ -192,9 +308,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         const res = await messageApi.revokeMessage(msg._id);
         const updatedMsg = res.data.result || res.data;
         setMessages((prev) =>
-          prev.map((m) =>
-            m._id === updatedMsg._id ? updatedMsg : m,
-          ),
+          prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)),
         );
         const recipients = conversation.members
           .filter((m) => m.userId?._id !== currentUserId)
@@ -233,13 +347,13 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
   const handleSendForward = async (targetConvId) => {
     if (!forwardContent) return;
-    
+
     // Sử dụng Object JSON thay vì FormData để chuyển tiếp mượt mà hơn
     const forwardPayload = {
-        conversationId: targetConvId,
-        senderId: currentUserId,
-        content: forwardContent.content || "",
-        attachments: forwardContent.attachments || []
+      conversationId: targetConvId,
+      senderId: currentUserId,
+      content: forwardContent.content || "",
+      attachments: forwardContent.attachments || [],
     };
 
     try {
@@ -273,7 +387,17 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                   boxShadow: "0 4px 10px rgba(0, 114, 255, 0.3)",
                 }}
               >
-                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 20 20" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                <svg
+                  stroke="currentColor"
+                  fill="currentColor"
+                  strokeWidth="0"
+                  viewBox="0 0 20 20"
+                  height="24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
+                </svg>
               </div>
             ) : chatPartner?.avatarUrl ? (
               <img src={chatPartner.avatarUrl} alt="" className="main-avatar" />
@@ -324,8 +448,11 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
           const isLastOfBlock = senderId !== nextSenderId;
 
           // 🔥 CẢI TIẾN LOGIC: Nếu đã thu hồi (isRecalled) thì KHÔNG tính là only image nữa
+          const isSticker = msg.type === "sticker"; // Thêm dòng này
+
           const isOnlyImage =
-            !msg.isRecalled && 
+            !msg.isRecalled &&
+            !isSticker && // Nếu là sticker thì không tính là only image
             !msg.content &&
             msg.attachments?.length > 0 &&
             msg.attachments.every((f) => f.type === "image");
@@ -354,7 +481,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                   <div
                     className="bubble-card"
                     style={
-                      isOnlyImage
+                      isOnlyImage || isSticker
                         ? {
                             background: "transparent",
                             padding: 0,
@@ -386,45 +513,56 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                       </div>
                     ) : (
                       <div className="msg-inner-content">
-                        {msg.content && (
-                          <p className="msg-text">{msg.content}</p>
-                        )}
-                        {msg.attachments?.map((file, i) => (
-                          <div key={i} className="attachment-modern">
-                            {file.type === "image" ? (
-                              <img
-                                src={file.url}
-                                alt=""
-                                className="msg-img-modern"
-                                style={
-                                  isOnlyImage && i === 0 ? { marginTop: 0 } : {}
-                                }
-                                onClick={() => window.open(file.url)}
-                              />
-                            ) : (
-                              <div
-                                className="file-card-modern"
-                                onClick={() => window.open(file.url)}
-                              >
-                                <FiDownload /> <span>{file.fileName}</span>
-                              </div>
+                        {msg.type === "sticker" ? (
+                          /* HIỂN THỊ STICKER */
+                          <img
+                            src={msg.content}
+                            alt="sticker"
+                            className="msg-sticker-render"
+                            style={{
+                              maxWidth: "140px",
+                              display: "block",
+                              cursor: "pointer",
+                              borderRadius: "8px",
+                            }}
+                            onClick={() => window.open(msg.content)}
+                          />
+                        ) : (
+                          /* HIỂN THỊ TEXT VÀ FILE NHƯ CŨ */
+                          <>
+                            {msg.content && (
+                              <p className="msg-text">{msg.content}</p>
                             )}
-                          </div>
-                        ))}
+                            {msg.attachments?.map((file, i) => (
+                              <div key={i} className="attachment-modern">
+                                {file.type === "image" ? (
+                                  <img
+                                    src={file.url}
+                                    alt=""
+                                    className="msg-img-modern"
+                                    style={
+                                      isOnlyImage && i === 0
+                                        ? { marginTop: 0 }
+                                        : {}
+                                    }
+                                    onClick={() => window.open(file.url)}
+                                  />
+                                ) : (
+                                  <div
+                                    className="file-card-modern"
+                                    onClick={() => window.open(file.url)}
+                                  >
+                                    <FiDownload /> <span>{file.fileName}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </>
+                        )}
+
+                        {/* Giữ nguyên phần Meta (thời gian) */}
                         <div className="msg-meta-zalo">
-                          <span
-                            className="timestamp-zalo"
-                            style={
-                              isOnlyImage
-                                ? {
-                                    color: "#72808e",
-                                    padding: "2px 4px",
-                                    textShadow:
-                                      "0 1px 2px rgba(255,255,255,0.8)",
-                                  }
-                                : {}
-                            }
-                          >
+                          <span className="timestamp-zalo">
                             {new Date(msg.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -544,9 +682,10 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                 }
               }}
             />
-            <button className="btn-emoji-refined">
+            <StickerPicker onSelect={handleSendSticker} />
+            {/* <button className="btn-emoji-refined">
               <FiSmile />
-            </button>
+            </button> */}
           </div>
           <div className="action-buttons-right">
             <button
