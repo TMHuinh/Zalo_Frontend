@@ -10,10 +10,14 @@ import { HiUserGroup } from "react-icons/hi";
 import CreateGroupModal from "./CreateGroupModal";
 import toast, { Toaster } from "react-hot-toast";
 
-function ChatList({ onSelectConversation, activeConversationId }) {
+function ChatList({
+  onSelectConversation,
+  activeConversationId,
+  conversations,
+}) {
   const [search, setSearch] = useState("");
   const [openModal, setOpenModal] = useState(false);
-  const [conversations, setConversations] = useState([]);
+  // const [conversations, setConversations] = useState([]);
   const [unread, setUnread] = useState({});
   const [openGroupModal, setOpenGroupModal] = useState(false);
 
@@ -25,7 +29,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       const sorted = (res.data.result || []).sort(
         (a, b) =>
           new Date(b.updatedAt || b.createdAt) -
-          new Date(a.updatedAt || a.createdAt)
+          new Date(a.updatedAt || a.createdAt),
       );
       setConversations(sorted);
     } catch (err) {
@@ -33,9 +37,9 @@ function ChatList({ onSelectConversation, activeConversationId }) {
     }
   };
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
+  // useEffect(() => {
+  //   fetchConversations();
+  // }, []);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -49,10 +53,10 @@ function ChatList({ onSelectConversation, activeConversationId }) {
   // ===== LOGIC LẮNG NGHE SOCKET: TIN NHẮN & TRẠNG THÁI ONLINE =====
   useEffect(() => {
     const handleReceive = async (data) => {
-      fetchConversations();
+      // fetchConversations();
 
       const targetConv = conversations.find(
-        (conv) => conv._id === data.conversationId
+        (conv) => conv._id === data.conversationId,
       );
 
       if (!targetConv) return;
@@ -78,7 +82,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
             return m;
           });
           return { ...conv, members: updatedMembers };
-        })
+        }),
       );
     };
 
@@ -92,7 +96,7 @@ function ChatList({ onSelectConversation, activeConversationId }) {
             return m;
           });
           return { ...conv, members: updatedMembers };
-        })
+        }),
       );
     };
 
@@ -111,7 +115,8 @@ function ChatList({ onSelectConversation, activeConversationId }) {
     return (conversations || []).filter((c) => {
       const members = c?.members || [];
       const otherUser = members.find((m) => m?.userId?._id !== currentUserId);
-      const name = c.type === 'group' ? c.name : (otherUser?.userId?.fullName || "Unknown");
+      const name =
+        c.type === "group" ? c.name : otherUser?.userId?.fullName || "Unknown";
 
       return (name || "").toLowerCase().includes((search || "").toLowerCase());
     });
@@ -239,7 +244,21 @@ function ChatList({ onSelectConversation, activeConversationId }) {
                 textOverflow: "ellipsis",
               }}
             >
-              {conv.lastMessageId?.content || "Chưa có tin nhắn"}
+              {conv.lastMessageId
+                ? conv.lastMessageId.type === "text"
+                  ? conv.lastMessageId.content
+                  : conv.lastMessageId.type === "sticker"
+                    ? "Sticker"
+                    : conv.lastMessageId.type === "image"
+                      ? "Ảnh"
+                      : conv.lastMessageId.type === "video"
+                        ? "Video"
+                        : conv.lastMessageId.type === "file"
+                          ? "Tệp"
+                          : conv.lastMessageId.type === "mixed"
+                            ? "Tin nhắn đa phương tiện"
+                            : "Tin nhắn"
+                : "Chưa có tin nhắn"}
             </div>
           </Col>
 
@@ -300,7 +319,9 @@ function ChatList({ onSelectConversation, activeConversationId }) {
               border: "none",
               transition: "0.2s",
             }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+            onMouseDown={(e) =>
+              (e.currentTarget.style.transform = "scale(0.9)")
+            }
             onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             <FiUserPlus />
@@ -322,7 +343,9 @@ function ChatList({ onSelectConversation, activeConversationId }) {
               border: "none",
               transition: "0.2s",
             }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
+            onMouseDown={(e) =>
+              (e.currentTarget.style.transform = "scale(0.9)")
+            }
             onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             <HiUserGroup />
@@ -333,7 +356,14 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       {/* RECENT */}
       {recent.length > 0 && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#64748b",
+              marginBottom: 10,
+            }}
+          >
             Hoạt động gần đây
           </div>
           <div className="d-flex flex-column gap-2 mb-3">
@@ -343,18 +373,21 @@ function ChatList({ onSelectConversation, activeConversationId }) {
       )}
 
       {/* ALL */}
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#64748b",
+          marginBottom: 10,
+        }}
+      >
         Tất cả cuộc trò chuyện
       </div>
 
-      <div className="d-flex flex-column gap-2">
-        {others.map(renderItem)}
-      </div>
+      <div className="d-flex flex-column gap-2">{others.map(renderItem)}</div>
 
       {/* MODAL */}
-      {openModal && (
-        <AddFriendModal onClose={() => setOpenModal(false)} />
-      )}
+      {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
 
       {openGroupModal && (
         <CreateGroupModal

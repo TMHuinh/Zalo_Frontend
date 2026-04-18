@@ -29,9 +29,15 @@ function Chat() {
   const fetchConversations = async () => {
     try {
       // Sửa tên hàm từ getConversations thành getByUserId
-      const res = await conversationApi.getByUserId(); 
+      const res = await conversationApi.getByUserId();
       // API của bạn trả về mảng nằm trong res.data.result
-      setConversations(res.data.result || []); 
+      const sorted = (res.data.result || []).sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt) -
+          new Date(a.updatedAt || a.createdAt),
+      );
+
+      setConversations(sorted);
     } catch (err) {
       console.error("Lỗi khi tải danh sách chat:", err);
     }
@@ -55,8 +61,7 @@ function Chat() {
       const index = updated.findIndex((c) => c._id === conversationId);
 
       if (index === -1) {
-        // Nếu là cuộc hội thoại mới hoàn toàn
-        fetchConversations(); // Tải lại toàn bộ cho chắc chắn dữ liệu đồng bộ
+        fetchConversations();
         return prev;
       }
 
@@ -67,9 +72,13 @@ function Chat() {
         updatedAt: new Date().toISOString(),
       };
 
-      // Đưa lên đầu danh sách
       updated.splice(index, 1);
       updated.unshift(updatedConv);
+
+      // 🔥 FIX: update activeConversation nếu đang mở
+      if (activeConversation?._id === conversationId) {
+        setActiveConversation(updatedConv);
+      }
 
       return updated;
     });
@@ -77,14 +86,67 @@ function Chat() {
 
   // SOCKET RECEIVE
   useEffect(() => {
-    const handleReceive = (data) => {
-      if (!data?.conversationId || !data?.message) return;
-      handleNewMessage(data);
+    const handleReceivePrivate = (data) => {
+      if (!data?.message) return;
+      if (data.userId === currentUserId) return;
+
+      setConversations((prev) => {
+        const index = prev.findIndex((c) =>
+          c.members.some((m) => m.userId._id === data.userId),
+        );
+
+        if (index === -1) return prev;
+
+        const updated = [...prev];
+        const conv = updated[index];
+
+        const updatedConv = {
+          ...conv,
+          lastMessageId: data.message,
+          updatedAt: new Date().toISOString(),
+        };
+
+        updated.splice(index, 1);
+        updated.unshift(updatedConv);
+
+        return updated;
+      });
     };
 
-    socket.on("receive_message", handleReceive);
-    return () => socket.off("receive_message", handleReceive);
-  }, []);
+    const handleReceiveGroup = (data) => {
+      if (!data?.message) return;
+
+      setConversations((prev) => {
+        const index = prev.findIndex(
+          (c) => c._id === data.groupId, // 🔥 KHÁC Ở ĐÂY
+        );
+
+        if (index === -1) return prev;
+
+        const updated = [...prev];
+        const conv = updated[index];
+
+        const updatedConv = {
+          ...conv,
+          lastMessageId: data.message,
+          updatedAt: new Date().toISOString(),
+        };
+
+        updated.splice(index, 1);
+        updated.unshift(updatedConv);
+
+        return updated;
+      });
+    };
+
+    socket.on("receive_message", handleReceivePrivate);
+    socket.on("receive_group_message", handleReceiveGroup);
+
+    return () => {
+      socket.off("receive_message", handleReceivePrivate);
+      socket.off("receive_group_message", handleReceiveGroup);
+    };
+  }, [currentUserId]);
 
   return (
     <div className="chat-layout">
