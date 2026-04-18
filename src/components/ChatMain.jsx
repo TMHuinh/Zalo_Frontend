@@ -249,48 +249,62 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
     const formData = new FormData();
     formData.append("conversationId", conversationId);
-    formData.append("senderId", currentUserId);
     formData.append("content", input);
     files.forEach((file) => formData.append("files", file));
 
     try {
-      const res = await messageApi.sendMessage(formData);
+      // 🔥 PHÂN BIỆT CHAT AI
+      if (conversation?.type === "bot") {
+        const payload = {
+          conversationId,
+          content: input,
+        };
 
-      const saved = res.data.result;
+        const res = await messageApi.sendChatbotMessage(payload);
 
-      // update UI trước (optimistic)
-      setMessages((prev) => [...prev, saved]);
+        const { userMessage, botMessage } = res.data.result;
 
-      // 🔥 PHÂN BIỆT CHAT ĐƠN / GROUP
-      const isGroup =
-        conversation?.type === "group" || conversation?.members?.length > 2;
+        setMessages((prev) => [...prev, userMessage, botMessage]);
 
-      if (isGroup) {
-        // ✅ CHAT GROUP
-        socket.emit("send_group_message", {
-          groupId: conversationId,
-          userId: currentUserId,
-          message: saved,
-        });
+        onNewMessage?.({ conversationId, message: botMessage });
       } else {
-        // ✅ CHAT ĐƠN
-        const recipient = conversation.members.find(
-          (m) => m.userId._id !== currentUserId,
-        )?.userId._id;
+        // 👉 CHAT NGƯỜI (giữ nguyên logic cũ)
+        formData.append("senderId", currentUserId);
 
-        socket.emit("send_message", {
-          userId: currentUserId,
-          toUserId: recipient, // 🔥 chỉ 1 user
-          message: saved,
-        });
+        const res = await messageApi.sendMessage(formData);
+        const saved = res.data.result;
+
+        setMessages((prev) => [...prev, saved]);
+
+        const isGroup =
+          conversation?.type === "group" || conversation?.members?.length > 2;
+
+        if (isGroup) {
+          socket.emit("send_group_message", {
+            groupId: conversationId,
+            userId: currentUserId,
+            message: saved,
+          });
+        } else {
+          const recipient = conversation.members.find(
+            (m) => m.userId._id !== currentUserId,
+          )?.userId._id;
+
+          socket.emit("send_message", {
+            userId: currentUserId,
+            toUserId: recipient,
+            message: saved,
+          });
+        }
+
+        onNewMessage?.({ conversationId, message: saved });
       }
-
-      onNewMessage?.({ conversationId, message: saved });
 
       setInput("");
       setFiles([]);
       setPreview([]);
     } catch (err) {
+      console.error(err);
       toast.error("Gửi tin nhắn thất bại");
     }
   };
@@ -525,7 +539,12 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                           /* HIỂN THỊ TEXT VÀ FILE NHƯ CŨ */
                           <>
                             {msg.content && (
-                              <p className="msg-text">{msg.content}</p>
+                              <p
+                                className="msg-text"
+                                dangerouslySetInnerHTML={{
+                                  __html: msg.content,
+                                }}
+                              />
                             )}
                             {msg.attachments?.map((file, i) => (
                               <div key={i} className="attachment-modern">

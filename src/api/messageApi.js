@@ -16,6 +16,9 @@ const messageApi = {
             },
         });
     },
+    sendChatbotMessage: (data) => {
+        return axiosClient.post("/message/chatbot", data);
+    },
     revokeMessage: (messageId) =>
         axiosClient.delete("/message/revoke", {
             data: { messageId },
