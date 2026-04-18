@@ -22,6 +22,11 @@ function ChatList({
   const [openGroupModal, setOpenGroupModal] = useState(false);
 
   const currentUserId = getUserIdFromToken();
+  // ==== xử lý load html=======
+  const stripHtml = (html) => {
+    if (!html) return "";
+    return html.replace(/<[^>]+>/g, "");
+  };
 
   const fetchConversations = async () => {
     try {
@@ -246,7 +251,7 @@ function ChatList({
             >
               {conv.lastMessageId
                 ? conv.lastMessageId.type === "text"
-                  ? conv.lastMessageId.content
+                  ? stripHtml(conv.lastMessageId.content)
                   : conv.lastMessageId.type === "sticker"
                     ? "Sticker"
                     : conv.lastMessageId.type === "image"
