@@ -68,7 +68,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         socket.emit("send_group_message", {
           groupId: conversationId,
           userId: currentUserId,
-          message: JSON.stringify(saved),
+          message: saved,
         });
       } else {
         // ✅ CHAT ĐƠN
@@ -81,7 +81,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         socket.emit("send_message", {
           userId: currentUserId,
           toUserId: recipient, // 🔥 chỉ 1 user
-          message: JSON.stringify(saved),
+          message: saved,
         });
       }
 
@@ -201,16 +201,12 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       .catch(console.error);
     socket.emit("join_conversation", conversationId);
 
-
     const handleReceivePrivate = (data) => {
-      let msg =
-        typeof data.message === "string"
-          ? JSON.parse(data.message)
-          : data.message;
+      const msg = data.message;
 
       if (!msg || !msg._id) return;
       // 🔥 LỌC THEO conversation
-      if (msg.conversationId !== conversationId) return;
+      if (msg.conversationId && msg.conversationId !== conversationId) return;
 
       setMessages((prev) =>
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
@@ -218,10 +214,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
     };
 
     const handleReceiveGroup = (data) => {
-      let msg =
-        typeof data.message === "string"
-          ? JSON.parse(data.message)
-          : data.message;
+      const msg = data.message;
 
       if (!msg || !msg._id) return;
       // 🔥 dùng groupId
@@ -262,6 +255,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
     try {
       const res = await messageApi.sendMessage(formData);
+
       const saved = res.data.result;
 
       // update UI trước (optimistic)
@@ -276,7 +270,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         socket.emit("send_group_message", {
           groupId: conversationId,
           userId: currentUserId,
-          message: JSON.stringify(saved),
+          message: saved,
         });
       } else {
         // ✅ CHAT ĐƠN
@@ -287,7 +281,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         socket.emit("send_message", {
           userId: currentUserId,
           toUserId: recipient, // 🔥 chỉ 1 user
-          message: JSON.stringify(saved),
+          message: saved,
         });
       }
 
