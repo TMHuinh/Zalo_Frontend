@@ -251,6 +251,24 @@ function ChatMain({
 
       const res = await conversationApi.getPinnedMessages(conversationId);
       setPinnedMessages(res.data.result || []);
+
+      const isGroup =
+        conversation?.type === "group" || conversation?.members?.length > 2;
+
+      const recipient = !isGroup
+        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
+            ?.userId?._id
+        : null;
+
+      socket.emit("pin_message", {
+        type: isGroup ? "group" : "direct",
+        conversationId,
+        groupId: isGroup ? conversationId : null,
+        toUserId: !isGroup ? recipient : null,
+        messageId: msg._id,
+        userId: currentUserId,
+      });
+
       toast.success("Đã ghim tin nhắn");
     } catch (error) {
       console.error(error);
@@ -267,6 +285,24 @@ function ChatMain({
 
       const res = await conversationApi.getPinnedMessages(conversationId);
       setPinnedMessages(res.data.result || []);
+
+      const isGroup =
+        conversation?.type === "group" || conversation?.members?.length > 2;
+
+      const recipient = !isGroup
+        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
+            ?.userId?._id
+        : null;
+
+      socket.emit("unpin_message", {
+        type: isGroup ? "group" : "direct",
+        conversationId,
+        groupId: isGroup ? conversationId : null,
+        toUserId: !isGroup ? recipient : null,
+        messageId: msg._id,
+        userId: currentUserId,
+      });
+
       toast.success("Đã bỏ ghim");
     } catch (error) {
       console.error(error);
@@ -282,23 +318,11 @@ function ChatMain({
   };
   // ===== bỏ ghim trên thanh ghim=======
   const handleUnpinFromBar = async (pinnedMsg) => {
-    try {
-      const msg = pinnedMsg?.messageId || pinnedMsg;
-      if (!msg?._id) return;
+    const msg = pinnedMsg?.messageId || pinnedMsg;
+    if (!msg?._id) return;
 
-      await conversationApi.unpinMessage({
-        conversationId,
-        messageId: msg._id,
-      });
-
-      const res = await conversationApi.getPinnedMessages(conversationId);
-      setPinnedMessages(res.data.result || []);
-      setPinnedMenuId(null);
-      toast.success("Đã bỏ ghim");
-    } catch (error) {
-      console.error(error);
-      toast.error("Bỏ ghim thất bại");
-    }
+    await handleUnpinMessage(msg);
+    setPinnedMenuId(null);
   };
   // ========================================================================================================================
   useEffect(() => {
@@ -401,6 +425,54 @@ function ChatMain({
     };
   }, [conversationId]);
 
+  // ================ nhận socket pin, unpin============
+  useEffect(() => {
+    const handlePinned = async ({ conversationId: convId }) => {
+      if (convId !== conversationId) return;
+
+      // reload lại danh sách ghim
+      const res = await conversationApi.getPinnedMessages(convId);
+      setPinnedMessages(res.data.result || []);
+    };
+
+    const handleUnpinned = async ({ conversationId: convId }) => {
+      if (convId !== conversationId) return;
+
+      const res = await conversationApi.getPinnedMessages(convId);
+      setPinnedMessages(res.data.result || []);
+    };
+
+    socket.on("message_pinned", handlePinned);
+    socket.on("message_unpinned", handleUnpinned);
+
+    return () => {
+      socket.off("message_pinned", handlePinned);
+      socket.off("message_unpinned", handleUnpinned);
+    };
+  }, [conversationId]);
+
+  // ======= nhận socket reacalll=========================
+  useEffect(() => {
+    const handleMessageReacted = ({ conversationId: convId, message }) => {
+      if (!message) return;
+
+      const msgConvId =
+        convId || message?.conversationId?._id || message?.conversationId;
+
+      if (msgConvId !== conversationId) return;
+
+      setMessages((prev) =>
+        prev.map((m) => (m._id === message._id ? message : m)),
+      );
+    };
+
+    socket.on("message_reacted", handleMessageReacted);
+
+    return () => {
+      socket.off("message_reacted", handleMessageReacted);
+    };
+  }, [conversationId]);
+
   const handleSend = async () => {
     if (!conversationId || (!input.trim() && files.length === 0)) return;
 
@@ -478,6 +550,24 @@ function ChatMain({
       setMessages((prev) =>
         prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
       );
+
+      const isGroup =
+        conversation?.type === "group" || conversation?.members?.length > 2;
+
+      const recipient = !isGroup
+        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
+            ?.userId?._id
+        : null;
+
+      socket.emit("react_message", {
+        type: isGroup ? "group" : "direct",
+        conversationId,
+        groupId: isGroup ? conversationId : null,
+        toUserId: !isGroup ? recipient : null,
+        messageId: updatedMessage._id,
+        userId: currentUserId,
+        message: updatedMessage,
+      });
 
       setReactionPickerMessageId(null);
     } catch (error) {
@@ -750,7 +840,7 @@ function ChatMain({
                 </div>
               </div>
 
-              {showAllPinned && (
+              {showAllPinned && pinnedMessages.length > 1 && (
                 <div
                   className="pinned-facebook-dropdown"
                   ref={pinnedDropdownRef}
