@@ -18,6 +18,7 @@ import {
 import { Modal, Button, ListGroup, Image } from "react-bootstrap";
 import toast, { Toaster } from "react-hot-toast";
 import "../css/chatMain.css";
+import { HiUserGroup } from "react-icons/hi";
 
 function ChatMain({
   currentUserId,
@@ -528,63 +529,59 @@ function ChatMain({
         <div className="header-content">
           <div className="avatar-wrapper">
             {isGroup ? (
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg, #00c6ff, #0072ff)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  boxShadow: "0 4px 10px rgba(0, 114, 255, 0.3)",
-                }}
-              >
-                <svg
-                  stroke="currentColor"
-                  fill="currentColor"
-                  strokeWidth="0"
-                  viewBox="0 0 20 20"
-                  height="24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
+              // Kiểm tra nếu nhóm có avatar thì hiện ảnh, không thì hiện icon giống ChatList
+              conversation?.avatarUrl ? (
+                <img
+                  src={conversation.avatarUrl}
+                  alt="group-avt"
+                  className="main-avatar"
+                  style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "50%" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #00c6ff, #0072ff)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    boxShadow: "0 4px 10px rgba(0, 114, 255, 0.3)",
+                  }}
                 >
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
-                </svg>
-              </div>
+                  {/* Nhớ import { HiUserGroup } from "react-icons/hi" ở đầu file */}
+                  <HiUserGroup size={24} />
+                </div>
+              )
             ) : chatPartner?.avatarUrl ? (
-              <img src={chatPartner.avatarUrl} alt="" className="main-avatar" />
+              <img src={chatPartner.avatarUrl} alt="" className="main-avatar" style={{ objectFit: "cover" }} />
             ) : (
-              <div className="text-avatar">
-                {chatPartner?.fullName?.charAt(0)}
+              <div className="text-avatar" style={{ background: "linear-gradient(135deg,#6366f1,#3b82f6)" }}>
+                {chatPartner?.fullName?.charAt(0) || "U"}
               </div>
             )}
+
+            {/* Chấm xanh online chỉ hiện cho chat cá nhân */}
             {!isGroup && chatPartner?.isOnline && (
-              <div
-                className="status-indicator online"
-                style={{ display: "block" }}
-              ></div>
+              <div className="status-indicator online" style={{ display: "block" }}></div>
             )}
           </div>
+
           <div className="user-details">
             <h3 className="user-name">
-              {isGroup
-                ? conversation.name || "Nhóm hội"
-                : chatPartner?.fullName}
+              {isGroup ? conversation.name || "Nhóm chat" : chatPartner?.fullName}
             </h3>
-            <span
-              className={`user-status-text ${chatPartner?.isOnline ? "online" : "offline"}`}
-            >
+            <span className={`user-status-text ${chatPartner?.isOnline ? "online" : "offline"}`}>
               {isGroup
-                ? `${conversation.members.length} thành viên`
-                : chatPartner?.isOnline
-                  ? "Đang hoạt động"
-                  : "Offline"}
+                ? `${conversation.members?.length || 0} thành viên`
+                : chatPartner?.isOnline ? "Đang hoạt động" : "Offline"}
             </span>
           </div>
         </div>
       </div>
+
       {pinnedMessages.length > 0 && (
         <div className="pinned-message-bar">
           <div className="pinned-message-list">
@@ -640,9 +637,8 @@ function ChatMain({
               ref={(el) => {
                 if (el) messageRefs.current[msg._id] = el;
               }}
-              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${
-                highlightedMessageId === msg._id ? "highlight-message" : ""
-              }`}
+              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${highlightedMessageId === msg._id ? "highlight-message" : ""
+                }`}
             >
               {!isMe && (
                 <div className="avatar-side">
@@ -665,10 +661,10 @@ function ChatMain({
                     style={
                       isOnlyImage || isSticker
                         ? {
-                            background: "transparent",
-                            padding: 0,
-                            boxShadow: "none",
-                          }
+                          background: "transparent",
+                          padding: 0,
+                          boxShadow: "none",
+                        }
                         : {}
                     }
                   >

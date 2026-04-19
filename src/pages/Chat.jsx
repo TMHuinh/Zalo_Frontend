@@ -83,6 +83,7 @@ function Chat() {
       return updated;
     });
   };
+
   const handleMessageRecalled = ({ conversationId, messageId }) => {
     setConversations((prev) => {
       const updated = prev.map((conv) => {
@@ -181,6 +182,7 @@ function Chat() {
         return updated;
       });
     };
+
     const handleSocketMessageRecalled = ({ conversationId, messageId }) => {
       if (!conversationId || !messageId) return;
 
@@ -196,7 +198,7 @@ function Chat() {
       socket.off("receive_group_message", handleReceiveGroup);
       socket.off("message_recalled", handleSocketMessageRecalled);
     };
-  }, [currentUserId]);
+  }, [currentUserId, activeConversation]); // Thêm activeConversation vào dependency để đảm bảo logic cập nhật chuẩn
 
   return (
     <div className="chat-layout">
@@ -206,6 +208,7 @@ function Chat() {
         {tab === "chat" ? (
           <ChatList
             conversations={conversations}
+            setConversations={setConversations} // PHẢI CÓ DÒNG NÀY ĐỂ FIX LỖI "NOT A FUNCTION"
             onSelectConversation={setActiveConversation}
             activeConversationId={activeConversation?._id}
           />
