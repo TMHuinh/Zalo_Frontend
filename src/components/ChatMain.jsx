@@ -241,7 +241,6 @@ function ChatMain({
       setHighlightedMessageId((prev) => (prev === messageId ? null : prev));
     }, 1800);
   };
-
   const handlePinMessage = async (msg) => {
     try {
       await conversationApi.pinMessage({
@@ -249,8 +248,29 @@ function ChatMain({
         messageId: msg._id,
       });
 
-      const res = await conversationApi.getPinnedMessages(conversationId);
-      setPinnedMessages(res.data.result || []);
+      const pinnedRes = await conversationApi.getPinnedMessages(conversationId);
+      const newPinned = pinnedRes.data.result || [];
+      setPinnedMessages(newPinned);
+
+      const pinnedItem = newPinned.find((item) => {
+        const pinnedMsg = item?.messageId || item;
+        return String(pinnedMsg?._id) === String(msg._id);
+      });
+
+      const updatedMessage = pinnedItem?.messageId ||
+        pinnedItem || {
+          ...msg,
+          isPinned: true,
+          conversationId,
+        };
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m._id) === String(msg._id)
+            ? { ...m, ...updatedMessage, isPinned: true }
+            : m,
+        ),
+      );
 
       const isGroup =
         conversation?.type === "group" || conversation?.members?.length > 2;
@@ -262,11 +282,10 @@ function ChatMain({
 
       socket.emit("pin_message", {
         type: isGroup ? "group" : "direct",
-        conversationId,
         groupId: isGroup ? conversationId : null,
         toUserId: !isGroup ? recipient : null,
-        messageId: msg._id,
         userId: currentUserId,
+        message: updatedMessage,
       });
 
       toast.success("Đã ghim tin nhắn");
@@ -283,8 +302,25 @@ function ChatMain({
         messageId: msg._id,
       });
 
-      const res = await conversationApi.getPinnedMessages(conversationId);
-      setPinnedMessages(res.data.result || []);
+      const pinnedRes = await conversationApi.getPinnedMessages(conversationId);
+      const newPinned = pinnedRes.data.result || [];
+      setPinnedMessages(newPinned);
+
+      const updatedMessage = {
+        ...msg,
+        isPinned: false,
+        conversationId,
+      };
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m._id) === String(msg._id) ? { ...m, isPinned: false } : m,
+        ),
+      );
+
+      if (newPinned.length <= 1) {
+        setShowAllPinned(false);
+      }
 
       const isGroup =
         conversation?.type === "group" || conversation?.members?.length > 2;
@@ -296,11 +332,10 @@ function ChatMain({
 
       socket.emit("unpin_message", {
         type: isGroup ? "group" : "direct",
-        conversationId,
         groupId: isGroup ? conversationId : null,
         toUserId: !isGroup ? recipient : null,
-        messageId: msg._id,
         userId: currentUserId,
+        message: updatedMessage,
       });
 
       toast.success("Đã bỏ ghim");
@@ -427,19 +462,45 @@ function ChatMain({
 
   // ================ nhận socket pin, unpin============
   useEffect(() => {
-    const handlePinned = async ({ conversationId: convId }) => {
-      if (convId !== conversationId) return;
+    const handlePinned = async ({ message }) => {
+      if (!message?._id) return;
 
-      // reload lại danh sách ghim
+      const convId = message?.conversationId?._id || message?.conversationId;
+
+      if (String(convId) !== String(conversationId)) return;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m._id) === String(message._id)
+            ? { ...m, ...message, isPinned: true }
+            : m,
+        ),
+      );
+
       const res = await conversationApi.getPinnedMessages(convId);
       setPinnedMessages(res.data.result || []);
     };
 
-    const handleUnpinned = async ({ conversationId: convId }) => {
-      if (convId !== conversationId) return;
+    const handleUnpinned = async ({ message }) => {
+      if (!message?._id) return;
+
+      const convId = message?.conversationId?._id || message?.conversationId;
+
+      if (String(convId) !== String(conversationId)) return;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m._id) === String(message._id) ? { ...m, isPinned: false } : m,
+        ),
+      );
 
       const res = await conversationApi.getPinnedMessages(convId);
-      setPinnedMessages(res.data.result || []);
+      const newPinned = res.data.result || [];
+      setPinnedMessages(newPinned);
+
+      if (newPinned.length <= 1) {
+        setShowAllPinned(false);
+      }
     };
 
     socket.on("message_pinned", handlePinned);
@@ -561,10 +622,8 @@ function ChatMain({
 
       socket.emit("react_message", {
         type: isGroup ? "group" : "direct",
-        conversationId,
         groupId: isGroup ? conversationId : null,
         toUserId: !isGroup ? recipient : null,
-        messageId: updatedMessage._id,
         userId: currentUserId,
         message: updatedMessage,
       });
@@ -657,19 +716,59 @@ function ChatMain({
   const handleSendForward = async (targetConvId) => {
     if (!forwardContent) return;
 
-    // Sử dụng Object JSON thay vì FormData để chuyển tiếp mượt mà hơn
+    const targetConversation = allConversations.find(
+      (c) => String(c._id) === String(targetConvId),
+    );
+
+    if (!targetConversation) {
+      toast.error("Không tìm thấy cuộc trò chuyện");
+      return;
+    }
+
     const forwardPayload = {
       conversationId: targetConvId,
       senderId: currentUserId,
       content: forwardContent.content || "",
       attachments: forwardContent.attachments || [],
+      type: forwardContent.type || "text",
+      replyToMessageId: null,
     };
 
     try {
-      await messageApi.sendMessage(forwardPayload);
+      const res = await messageApi.sendMessage(forwardPayload);
+      const saved = res.data.result;
+
+      const isTargetGroup =
+        targetConversation?.type === "group" ||
+        targetConversation?.members?.length > 2;
+
+      if (isTargetGroup) {
+        socket.emit("send_group_message", {
+          groupId: targetConvId,
+          userId: currentUserId,
+          message: saved,
+        });
+      } else {
+        const recipient = targetConversation.members.find(
+          (m) => m.userId?._id !== currentUserId,
+        )?.userId?._id;
+
+        if (recipient) {
+          socket.emit("send_message", {
+            userId: currentUserId,
+            toUserId: recipient,
+            message: saved,
+          });
+        }
+      }
+
+      onNewMessage?.({ conversationId: targetConvId, message: saved });
+
       setForwardModal(false);
+      setForwardContent(null);
       toast.success("Chuyển tiếp thành công!");
     } catch (err) {
+      console.error(err);
       toast.error("Lỗi khi chuyển tiếp");
     }
   };
