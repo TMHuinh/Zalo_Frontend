@@ -14,6 +14,8 @@ import {
   FiSmile,
   FiSearch,
   FiAlertCircle,
+  FiCornerUpLeft,
+  FiShare2,
 } from "react-icons/fi";
 import { Modal, Button, ListGroup, Image } from "react-bootstrap";
 import toast, { Toaster } from "react-hot-toast";
@@ -42,9 +44,14 @@ function ChatMain({
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState(null);
-
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [showAllPinned, setShowAllPinned] = useState(false);
+  const [pinnedMenuId, setPinnedMenuId] = useState(null);
   const messageRefs = useRef({});
   const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+  const messageMenuRef = useRef(null);
+  const pinnedMenuRef = useRef(null);
+  const pinnedDropdownRef = useRef(null);
 
   const [confirmModal, setConfirmModal] = useState({
     show: false,
@@ -56,6 +63,8 @@ function ChatMain({
   const conversationId = conversation?._id;
   const isGroup =
     conversation?.type === "group" || conversation?.members?.length > 2;
+
+  const isAnyMenuOpen = menuMessageId !== null || pinnedMenuId !== null;
   // ==== xử lý sticker===========================
   const handleSendSticker = async (stickerUrl) => {
     if (!conversationId) return;
@@ -271,13 +280,68 @@ function ChatMain({
       return pinnedId === messageId;
     });
   };
+  // ===== bỏ ghim trên thanh ghim=======
+  const handleUnpinFromBar = async (pinnedMsg) => {
+    try {
+      const msg = pinnedMsg?.messageId || pinnedMsg;
+      if (!msg?._id) return;
 
+      await conversationApi.unpinMessage({
+        conversationId,
+        messageId: msg._id,
+      });
+
+      const res = await conversationApi.getPinnedMessages(conversationId);
+      setPinnedMessages(res.data.result || []);
+      setPinnedMenuId(null);
+      toast.success("Đã bỏ ghim");
+    } catch (error) {
+      console.error(error);
+      toast.error("Bỏ ghim thất bại");
+    }
+  };
+  // ========================================================================================================================
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ==========================================================================================================================
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const clickedInsideMessageMenu =
+        messageMenuRef.current && messageMenuRef.current.contains(e.target);
+
+      const clickedInsidePinnedMenu =
+        pinnedMenuRef.current && pinnedMenuRef.current.contains(e.target);
+
+      const clickedInsidePinnedDropdown =
+        pinnedDropdownRef.current &&
+        pinnedDropdownRef.current.contains(e.target);
+
+      if (!clickedInsideMessageMenu) {
+        setMenuMessageId(null);
+      }
+
+      if (!clickedInsidePinnedMenu) {
+        setPinnedMenuId(null);
+      }
+
+      if (!clickedInsidePinnedDropdown) {
+        setShowAllPinned(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  // ================================================================================================
   useEffect(() => {
     if (!conversationId) return;
+
+    setShowAllPinned(false);
+    setPinnedMenuId(null);
 
     messageApi
       .getMessages(conversationId)
@@ -535,7 +599,12 @@ function ChatMain({
                   src={conversation.avatarUrl}
                   alt="group-avt"
                   className="main-avatar"
-                  style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "50%" }}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                  }}
                 />
               ) : (
                 <div
@@ -556,57 +625,222 @@ function ChatMain({
                 </div>
               )
             ) : chatPartner?.avatarUrl ? (
-              <img src={chatPartner.avatarUrl} alt="" className="main-avatar" style={{ objectFit: "cover" }} />
+              <img
+                src={chatPartner.avatarUrl}
+                alt=""
+                className="main-avatar"
+                style={{ objectFit: "cover" }}
+              />
             ) : (
-              <div className="text-avatar" style={{ background: "linear-gradient(135deg,#6366f1,#3b82f6)" }}>
+              <div
+                className="text-avatar"
+                style={{
+                  background: "linear-gradient(135deg,#6366f1,#3b82f6)",
+                }}
+              >
                 {chatPartner?.fullName?.charAt(0) || "U"}
               </div>
             )}
 
             {/* Chấm xanh online chỉ hiện cho chat cá nhân */}
             {!isGroup && chatPartner?.isOnline && (
-              <div className="status-indicator online" style={{ display: "block" }}></div>
+              <div
+                className="status-indicator online"
+                style={{ display: "block" }}
+              ></div>
             )}
           </div>
 
           <div className="user-details">
             <h3 className="user-name">
-              {isGroup ? conversation.name || "Nhóm chat" : chatPartner?.fullName}
+              {isGroup
+                ? conversation.name || "Nhóm chat"
+                : chatPartner?.fullName}
             </h3>
-            <span className={`user-status-text ${chatPartner?.isOnline ? "online" : "offline"}`}>
+            <span
+              className={`user-status-text ${chatPartner?.isOnline ? "online" : "offline"}`}
+            >
               {isGroup
                 ? `${conversation.members?.length || 0} thành viên`
-                : chatPartner?.isOnline ? "Đang hoạt động" : "Offline"}
+                : chatPartner?.isOnline
+                  ? "Đang hoạt động"
+                  : "Offline"}
             </span>
           </div>
         </div>
       </div>
+      {pinnedMessages.length > 0 &&
+        (() => {
+          const firstPinned = pinnedMessages[0]?.messageId || pinnedMessages[0];
+          const extraCount = pinnedMessages.length - 1;
 
-      {pinnedMessages.length > 0 && (
-        <div className="pinned-message-bar">
-          <div className="pinned-message-list">
-            {pinnedMessages.map((item, index) => {
-              const pinnedMsg = item.messageId || item;
-              const pinnedId = pinnedMsg?._id;
+          return (
+            <div className="pinned-bar-facebook">
+              <div className="pinned-bar-facebook-main">
+                <div className="pinned-facebook-left">
+                  <div className="pinned-facebook-icon">💬</div>
 
-              return (
-                <div
-                  key={pinnedId || index}
-                  className="pinned-message-item"
-                  onClick={() => scrollToMessage(pinnedId)}
-                >
-                  <div className="pinned-message-label">📌 Tin nhắn ghim</div>
-                  <div className="pinned-message-text">
-                    {getReplyPreviewText(pinnedMsg)}
+                  <div
+                    className="pinned-facebook-content"
+                    onClick={() => {
+                      if (!firstPinned?._id) return;
+                      scrollToMessage(firstPinned._id);
+                      setPinnedMenuId(null);
+                    }}
+                  >
+                    <div className="pinned-facebook-title">Tin nhắn</div>
+                    <div className="pinned-facebook-text">
+                      {getReplyPreviewText(firstPinned)}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      <div className="chat-body-modern">
+                <div className="pinned-facebook-actions">
+                  {/* Case nhiều tin */}
+                  {extraCount > 0 && (
+                    <button
+                      type="button"
+                      className={`pinned-facebook-more ${showAllPinned ? "expanded" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllPinned((prev) => !prev);
+                        setPinnedMenuId(null);
+                      }}
+                    >
+                      +{extraCount} ghim <span className="caret">▾</span>
+                    </button>
+                  )}
+
+                  {/* Case chỉ có 1 tin */}
+                  {extraCount === 0 && (
+                    <div
+                      className="pinned-single-menu-wrap"
+                      ref={
+                        pinnedMenuId === firstPinned?._id ? pinnedMenuRef : null
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="pinned-single-more-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPinnedMenuId((prev) =>
+                            prev === firstPinned?._id ? null : firstPinned?._id,
+                          );
+                        }}
+                      >
+                        <FiMoreHorizontal />
+                      </button>
+
+                      {pinnedMenuId === firstPinned?._id && (
+                        <div
+                          className="pinned-single-dropdown"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="pinned-single-dropdown-item unpin"
+                            onClick={() => handleUnpinFromBar(firstPinned)}
+                          >
+                            Bỏ ghim
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {showAllPinned && (
+                <div
+                  className="pinned-facebook-dropdown"
+                  ref={pinnedDropdownRef}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="pinned-facebook-dropdown-header">
+                    <span>Danh sách ghim ({pinnedMessages.length})</span>
+                    <button
+                      type="button"
+                      className="pinned-facebook-collapse"
+                      onClick={() => setShowAllPinned(false)}
+                    >
+                      Thu gọn <span>⌃</span>
+                    </button>
+                  </div>
+
+                  <div className="pinned-facebook-list">
+                    {pinnedMessages.map((item, index) => {
+                      const pinnedMsg = item.messageId || item;
+                      const pinnedId = pinnedMsg?._id;
+
+                      return (
+                        <div
+                          key={pinnedId || index}
+                          className="pinned-facebook-item"
+                        >
+                          <div
+                            className="pinned-facebook-item-body"
+                            onClick={() => {
+                              if (!pinnedId) return;
+                              scrollToMessage(pinnedId);
+                              setShowAllPinned(false);
+                              setPinnedMenuId(null);
+                            }}
+                          >
+                            <div className="pinned-facebook-item-title">
+                              Tin nhắn
+                            </div>
+                            <div className="pinned-facebook-item-text">
+                              {getReplyPreviewText(pinnedMsg)}
+                            </div>
+                          </div>
+
+                          <div
+                            className="pinned-facebook-item-actions"
+                            ref={
+                              pinnedMenuId === pinnedId ? pinnedMenuRef : null
+                            }
+                          >
+                            <button
+                              type="button"
+                              className="pinned-facebook-item-more"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedMenuId((prev) =>
+                                  prev === pinnedId ? null : pinnedId,
+                                );
+                              }}
+                            >
+                              <FiMoreHorizontal />
+                            </button>
+
+                            {pinnedMenuId === pinnedId && (
+                              <div
+                                className="pinned-facebook-item-menu"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  className="pinned-facebook-item-menu-btn unpin"
+                                  onClick={() => handleUnpinFromBar(item)}
+                                >
+                                  Bỏ ghim
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+      <div
+        className={`chat-body-modern ${isAnyMenuOpen ? "scroll-locked" : ""}`}
+      >
         {messages.map((msg, index) => {
           if (msg.isDeleted) return null;
           const senderId =
@@ -622,14 +856,16 @@ function ChatMain({
           const isLastOfBlock = senderId !== nextSenderId;
 
           // 🔥 CẢI TIẾN LOGIC: Nếu đã thu hồi (isRecalled) thì KHÔNG tính là only image nữa
-          const isSticker = msg.type === "sticker"; // Thêm dòng này
+          const isSticker = msg.type === "sticker";
 
           const isOnlyImage =
             !msg.isRecalled &&
-            !isSticker && // Nếu là sticker thì không tính là only image
+            !isSticker &&
             !msg.content &&
             msg.attachments?.length > 0 &&
             msg.attachments.every((f) => f.type === "image");
+
+          const isMediaBubble = !msg.isRecalled && (isOnlyImage || isSticker);
 
           return (
             <div
@@ -637,8 +873,13 @@ function ChatMain({
               ref={(el) => {
                 if (el) messageRefs.current[msg._id] = el;
               }}
-              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${highlightedMessageId === msg._id ? "highlight-message" : ""
-                }`}
+              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${
+                highlightedMessageId === msg._id ? "highlight-message" : ""
+              }`}
+              onMouseEnter={() => setHoveredMessageId(msg._id)}
+              onMouseLeave={() => {
+                setHoveredMessageId((prev) => (prev === msg._id ? null : prev));
+              }}
             >
               {!isMe && (
                 <div className="avatar-side">
@@ -659,12 +900,12 @@ function ChatMain({
                   <div
                     className="bubble-card"
                     style={
-                      isOnlyImage || isSticker
+                      isMediaBubble
                         ? {
-                          background: "transparent",
-                          padding: 0,
-                          boxShadow: "none",
-                        }
+                            background: "transparent",
+                            padding: 0,
+                            boxShadow: "none",
+                          }
                         : {}
                     }
                   >
@@ -804,67 +1045,100 @@ function ChatMain({
                       </div>
                     )}
                     {!msg.isRecalled && (
-                      <div className="message-actions-trigger">
-                        <FiMoreHorizontal
+                      <div
+                        className={`message-hover-actions ${
+                          hoveredMessageId === msg._id ||
+                          menuMessageId === msg._id
+                            ? "show"
+                            : ""
+                        } ${isMe ? "left-side" : "right-side"}`}
+                      >
+                        <button
+                          type="button"
+                          className="hover-action-btn"
+                          title="Thả cảm xúc"
                           onClick={() =>
-                            setMenuMessageId(
-                              menuMessageId === msg._id ? null : msg._id,
+                            setReactionPickerMessageId(
+                              reactionPickerMessageId === msg._id
+                                ? null
+                                : msg._id,
                             )
                           }
-                        />
-                        {menuMessageId === msg._id && (
-                          <div className="action-menu-dropdown">
-                            <button
-                              className="menu-item"
-                              onClick={() => handleActionClick(msg, "reply")}
-                            >
-                              Trả lời
-                            </button>
-                            <button
-                              className="menu-item"
-                              onClick={() => {
-                                setReactionPickerMessageId(
-                                  reactionPickerMessageId === msg._id
-                                    ? null
-                                    : msg._id,
-                                );
-                                setMenuMessageId(null);
-                              }}
-                            >
-                              Thả cảm xúc
-                            </button>
+                        >
+                          👍
+                        </button>
 
-                            <button
-                              className="menu-item"
-                              onClick={() => handleActionClick(msg, "pin")}
-                            >
-                              {isPinnedMessage(msg._id) ? "Bỏ ghim" : "Ghim"}
-                            </button>
+                        <button
+                          type="button"
+                          className="hover-action-btn"
+                          title="Trả lời"
+                          onClick={() => handleActionClick(msg, "reply")}
+                        >
+                          <FiCornerUpLeft />
+                        </button>
 
-                            {isMe && (
+                        <button
+                          type="button"
+                          className="hover-action-btn"
+                          title="Chuyển tiếp"
+                          onClick={() => handleActionClick(msg, "forward")}
+                        >
+                          <FiShare2 />
+                        </button>
+
+                        <div
+                          className="hover-action-menu-wrap"
+                          ref={
+                            menuMessageId === msg._id ? messageMenuRef : null
+                          }
+                        >
+                          <button
+                            type="button"
+                            className="hover-action-btn"
+                            title="Khác"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuMessageId((prev) =>
+                                prev === msg._id ? null : msg._id,
+                              );
+                              setReactionPickerMessageId(null);
+                            }}
+                          >
+                            <FiMoreHorizontal />
+                          </button>
+
+                          {menuMessageId === msg._id && (
+                            <div
+                              className={`action-menu-dropdown modern ${isMe ? "left" : "right"}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <button
                                 className="menu-item"
-                                onClick={() => handleActionClick(msg, "revoke")}
+                                onClick={() => handleActionClick(msg, "pin")}
                               >
-                                Thu hồi
+                                {isPinnedMessage(msg._id) ? "Gỡ ghim" : "Ghim"}
                               </button>
-                            )}
 
-                            <button
-                              className="menu-item"
-                              onClick={() => handleActionClick(msg, "forward")}
-                            >
-                              Chuyển tiếp
-                            </button>
+                              {isMe && (
+                                <button
+                                  className="menu-item"
+                                  onClick={() =>
+                                    handleActionClick(msg, "revoke")
+                                  }
+                                >
+                                  Thu hồi
+                                </button>
+                              )}
 
-                            <button
-                              className="menu-item delete"
-                              onClick={() => handleActionClick(msg, "delete")}
-                            >
-                              Xóa phía tôi
-                            </button>
-                          </div>
-                        )}
+                              <button
+                                className="menu-item delete"
+                                onClick={() => handleActionClick(msg, "delete")}
+                              >
+                                Xóa phía tôi
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -888,7 +1162,9 @@ function ChatMain({
                     </div>
                   )}
                   {reactionPickerMessageId === msg._id && !msg.isRecalled && (
-                    <div className="reaction-picker">
+                    <div
+                      className={`reaction-picker-floating ${isMe ? "me" : "other"}`}
+                    >
                       {reactionEmojis.map((emoji) => (
                         <button
                           key={emoji}
