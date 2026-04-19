@@ -250,19 +250,21 @@ function ChatList({
               }}
             >
               {conv.lastMessageId
-                ? conv.lastMessageId.type === "text"
-                  ? stripHtml(conv.lastMessageId.content)
-                  : conv.lastMessageId.type === "sticker"
-                    ? "Sticker"
-                    : conv.lastMessageId.type === "image"
-                      ? "Ảnh"
-                      : conv.lastMessageId.type === "video"
-                        ? "Video"
-                        : conv.lastMessageId.type === "file"
-                          ? "Tệp"
-                          : conv.lastMessageId.type === "mixed"
-                            ? "Tin nhắn đa phương tiện"
-                            : "Tin nhắn"
+                ? conv.lastMessageId.isRecalled
+                  ? "Tin nhắn đã được thu hồi"
+                  : conv.lastMessageId.type === "text"
+                    ? stripHtml(conv.lastMessageId.content)
+                    : conv.lastMessageId.type === "sticker"
+                      ? "Sticker"
+                      : conv.lastMessageId.type === "image"
+                        ? "Ảnh"
+                        : conv.lastMessageId.type === "video"
+                          ? "Video"
+                          : conv.lastMessageId.type === "file"
+                            ? "Tệp"
+                            : conv.lastMessageId.type === "mixed"
+                              ? "Tin nhắn đa phương tiện"
+                              : "Tin nhắn"
                 : "Chưa có tin nhắn"}
             </div>
           </Col>

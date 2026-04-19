@@ -19,7 +19,12 @@ import { Modal, Button, ListGroup, Image } from "react-bootstrap";
 import toast, { Toaster } from "react-hot-toast";
 import "../css/chatMain.css";
 
-function ChatMain({ currentUserId, conversation, onNewMessage }) {
+function ChatMain({
+  currentUserId,
+  conversation,
+  onNewMessage,
+  onMessageRecalled,
+}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [files, setFiles] = useState([]);
@@ -422,16 +427,41 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       if (type === "revoke") {
         const res = await messageApi.revokeMessage(msg._id);
         const updatedMsg = res.data.result || res.data;
+
         setMessages((prev) =>
           prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)),
         );
-        const recipients = conversation.members
-          .filter((m) => m.userId?._id !== currentUserId)
-          .map((m) => m.userId._id);
-        socket.emit("recall_message", {
-          toUserId: recipients,
+
+        onMessageRecalled?.({
+          conversationId,
           messageId: msg._id,
         });
+
+        const isGroupChat =
+          conversation?.type === "group" || conversation?.members?.length > 2;
+
+        if (isGroupChat) {
+          socket.emit("recall_message", {
+            type: "group",
+            groupId: conversationId,
+            conversationId,
+            messageId: msg._id,
+          });
+        } else {
+          const recipient = conversation.members.find(
+            (m) => m.userId?._id !== currentUserId,
+          )?.userId?._id;
+
+          if (recipient) {
+            socket.emit("recall_message", {
+              type: "direct",
+              toUserId: recipient,
+              conversationId,
+              messageId: msg._id,
+            });
+          }
+        }
+
         toast.success("Đã thu hồi tin nhắn");
       } else if (type === "delete") {
         await messageApi.deleteMessage(msg._id);
