@@ -28,5 +28,8 @@ const messageApi = {
         axiosClient.delete("/message/delete", {
             data: { messageId },
         }),
+    reactMessage: (data) => {
+        return axiosClient.post("/message/reaction", data);
+    },
 };
 export default messageApi;
