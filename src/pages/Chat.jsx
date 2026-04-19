@@ -83,6 +83,49 @@ function Chat() {
       return updated;
     });
   };
+  const handleMessageRecalled = ({ conversationId, messageId }) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) => {
+        if (conv._id !== conversationId) return conv;
+
+        if (conv.lastMessageId?._id === messageId) {
+          return {
+            ...conv,
+            lastMessageId: {
+              ...conv.lastMessageId,
+              isRecalled: true,
+              content: "",
+              attachments: [],
+              type: "text",
+            },
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        return conv;
+      });
+
+      return updated;
+    });
+
+    if (activeConversation?._id === conversationId) {
+      setActiveConversation((prev) => {
+        if (!prev) return prev;
+        if (prev.lastMessageId?._id !== messageId) return prev;
+
+        return {
+          ...prev,
+          lastMessageId: {
+            ...prev.lastMessageId,
+            isRecalled: true,
+            content: "",
+            attachments: [],
+            type: "text",
+          },
+        };
+      });
+    }
+  };
 
   // SOCKET RECEIVE
   useEffect(() => {
@@ -138,13 +181,20 @@ function Chat() {
         return updated;
       });
     };
+    const handleSocketMessageRecalled = ({ conversationId, messageId }) => {
+      if (!conversationId || !messageId) return;
 
+      handleMessageRecalled({ conversationId, messageId });
+    };
+
+    socket.on("message_recalled", handleSocketMessageRecalled);
     socket.on("receive_message", handleReceivePrivate);
     socket.on("receive_group_message", handleReceiveGroup);
 
     return () => {
       socket.off("receive_message", handleReceivePrivate);
       socket.off("receive_group_message", handleReceiveGroup);
+      socket.off("message_recalled", handleSocketMessageRecalled);
     };
   }, [currentUserId]);
 
@@ -176,6 +226,7 @@ function Chat() {
               conversation={activeConversation}
               currentUserId={currentUserId}
               onNewMessage={handleNewMessage}
+              onMessageRecalled={handleMessageRecalled}
             />
           ) : (
             <div className="empty-state">
