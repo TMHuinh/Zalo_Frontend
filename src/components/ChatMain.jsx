@@ -32,6 +32,14 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [forwardContent, setForwardContent] = useState(null);
 
+  const [replyingMessage, setReplyingMessage] = useState(null);
+  const [pinnedMessages, setPinnedMessages] = useState([]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [reactionPickerMessageId, setReactionPickerMessageId] = useState(null);
+
+  const messageRefs = useRef({});
+  const reactionEmojis = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     type: "",
@@ -189,23 +197,97 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       ?.userId;
   };
 
+  const getReplyPreviewText = (msg) => {
+    if (!msg) return "";
+
+    if (msg.isRecalled) return "Tin nhắn đã được thu hồi";
+    if (msg.type === "sticker") return "[Sticker]";
+    if (msg.attachments?.length > 0 && !msg.content) {
+      if (msg.attachments.every((f) => f.type === "image")) return "[Hình ảnh]";
+      return "[Tệp đính kèm]";
+    }
+
+    return msg.content || "";
+  };
+  const scrollToMessage = (messageId) => {
+    if (!messageId) return;
+
+    const el = messageRefs.current[messageId];
+    if (!el) return;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    setHighlightedMessageId(messageId);
+
+    setTimeout(() => {
+      setHighlightedMessageId((prev) => (prev === messageId ? null : prev));
+    }, 1800);
+  };
+
+  const handlePinMessage = async (msg) => {
+    try {
+      await conversationApi.pinMessage({
+        conversationId,
+        messageId: msg._id,
+      });
+
+      const res = await conversationApi.getPinnedMessages(conversationId);
+      setPinnedMessages(res.data.result || []);
+      toast.success("Đã ghim tin nhắn");
+    } catch (error) {
+      console.error(error);
+      toast.error("Ghim tin nhắn thất bại");
+    }
+  };
+
+  const handleUnpinMessage = async (msg) => {
+    try {
+      await conversationApi.unpinMessage({
+        conversationId,
+        messageId: msg._id,
+      });
+
+      const res = await conversationApi.getPinnedMessages(conversationId);
+      setPinnedMessages(res.data.result || []);
+      toast.success("Đã bỏ ghim");
+    } catch (error) {
+      console.error(error);
+      toast.error("Bỏ ghim thất bại");
+    }
+  };
+
+  const isPinnedMessage = (messageId) => {
+    return pinnedMessages.some((item) => {
+      const pinnedId = item?.messageId?._id || item?.messageId || item?._id;
+      return pinnedId === messageId;
+    });
+  };
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
     if (!conversationId) return;
+
     messageApi
       .getMessages(conversationId)
       .then((res) => setMessages(res.data.result.data.reverse()))
       .catch(console.error);
+
+    conversationApi
+      .getPinnedMessages(conversationId)
+      .then((res) => setPinnedMessages(res.data.result || []))
+      .catch(console.error);
+
     socket.emit("join_conversation", conversationId);
 
     const handleReceivePrivate = (data) => {
       const msg = data.message;
-
       if (!msg || !msg._id) return;
-      // 🔥 LỌC THEO conversation
       if (msg.conversationId && msg.conversationId !== conversationId) return;
 
       setMessages((prev) =>
@@ -215,9 +297,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
 
     const handleReceiveGroup = (data) => {
       const msg = data.message;
-
       if (!msg || !msg._id) return;
-      // 🔥 dùng groupId
       if (data.groupId !== conversationId) return;
 
       setMessages((prev) =>
@@ -229,18 +309,25 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       setMessages((prev) =>
         prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)),
       );
+    const handleMessageUpdated = (updatedMessage) => {
+      if (!updatedMessage?._id) return;
 
-    // socket.on("receive_message", handleReceive);
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
+      );
+    };
+
     socket.on("receive_message", handleReceivePrivate);
     socket.on("receive_group_message", handleReceiveGroup);
     socket.on("message_recalled", handleRecalled);
+    socket.on("message_updated", handleMessageUpdated);
 
     return () => {
       socket.emit("leave_conversation", conversationId);
-      // socket.off("receive_message", handleReceive);
       socket.off("receive_message", handleReceivePrivate);
       socket.off("receive_group_message", handleReceiveGroup);
       socket.off("message_recalled", handleRecalled);
+      socket.off("message_updated", handleMessageUpdated);
     };
   }, [conversationId]);
 
@@ -250,10 +337,15 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
     const formData = new FormData();
     formData.append("conversationId", conversationId);
     formData.append("content", input);
+    formData.append("senderId", currentUserId);
+
+    if (replyingMessage?._id) {
+      formData.append("replyToMessageId", replyingMessage._id);
+    }
+
     files.forEach((file) => formData.append("files", file));
 
     try {
-      // 🔥 PHÂN BIỆT CHAT AI
       if (conversation?.type === "bot") {
         const payload = {
           conversationId,
@@ -261,16 +353,11 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
         };
 
         const res = await messageApi.sendChatbotMessage(payload);
-
         const { userMessage, botMessage } = res.data.result;
 
         setMessages((prev) => [...prev, userMessage, botMessage]);
-
         onNewMessage?.({ conversationId, message: botMessage });
       } else {
-        // 👉 CHAT NGƯỜI (giữ nguyên logic cũ)
-        formData.append("senderId", currentUserId);
-
         const res = await messageApi.sendMessage(formData);
         const saved = res.data.result;
 
@@ -303,9 +390,29 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
       setInput("");
       setFiles([]);
       setPreview([]);
+      setReplyingMessage(null);
     } catch (err) {
       console.error(err);
       toast.error("Gửi tin nhắn thất bại");
+    }
+  };
+  const handleReactMessage = async (msg, emoji) => {
+    try {
+      const res = await messageApi.reactMessage({
+        messageId: msg._id,
+        emoji,
+      });
+
+      const updatedMessage = res.data.result;
+
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
+      );
+
+      setReactionPickerMessageId(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Thả cảm xúc thất bại");
     }
   };
 
@@ -338,8 +445,16 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
     }
   };
 
-  const handleActionClick = (msg, type) => {
-    if (type === "forward") {
+  const handleActionClick = async (msg, type) => {
+    if (type === "reply") {
+      setReplyingMessage(msg);
+    } else if (type === "pin") {
+      if (isPinnedMessage(msg._id)) {
+        await handleUnpinMessage(msg);
+      } else {
+        await handlePinMessage(msg);
+      }
+    } else if (type === "forward") {
       setForwardContent(msg);
       setForwardModal(true);
       conversationApi
@@ -350,6 +465,7 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
     } else {
       setConfirmModal({ show: true, type, msg });
     }
+
     setMenuMessageId(null);
   };
 
@@ -439,6 +555,29 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
           </div>
         </div>
       </div>
+      {pinnedMessages.length > 0 && (
+        <div className="pinned-message-bar">
+          <div className="pinned-message-list">
+            {pinnedMessages.map((item, index) => {
+              const pinnedMsg = item.messageId || item;
+              const pinnedId = pinnedMsg?._id;
+
+              return (
+                <div
+                  key={pinnedId || index}
+                  className="pinned-message-item"
+                  onClick={() => scrollToMessage(pinnedId)}
+                >
+                  <div className="pinned-message-label">📌 Tin nhắn ghim</div>
+                  <div className="pinned-message-text">
+                    {getReplyPreviewText(pinnedMsg)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="chat-body-modern">
         {messages.map((msg, index) => {
@@ -468,7 +607,12 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
           return (
             <div
               key={msg._id}
-              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""}`}
+              ref={(el) => {
+                if (el) messageRefs.current[msg._id] = el;
+              }}
+              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${
+                highlightedMessageId === msg._id ? "highlight-message" : ""
+              }`}
             >
               {!isMe && (
                 <div className="avatar-side">
@@ -521,6 +665,55 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                       </div>
                     ) : (
                       <div className="msg-inner-content">
+                        {msg.replyToMessageId && (
+                          <div
+                            className="reply-quoted-box clickable"
+                            onClick={() => {
+                              const replyId =
+                                typeof msg.replyToMessageId === "object"
+                                  ? msg.replyToMessageId._id
+                                  : msg.replyToMessageId;
+
+                              scrollToMessage(replyId);
+                            }}
+                          >
+                            <div className="reply-quoted-sender">
+                              {(() => {
+                                const repliedMsg =
+                                  typeof msg.replyToMessageId === "object"
+                                    ? msg.replyToMessageId
+                                    : null;
+
+                                if (!repliedMsg) return "Tin nhắn đã trả lời";
+
+                                const repliedSender = getSender(repliedMsg);
+                                const repliedSenderId =
+                                  typeof repliedMsg.senderId === "object"
+                                    ? repliedMsg.senderId._id
+                                    : repliedMsg.senderId;
+
+                                return repliedSenderId === currentUserId
+                                  ? "Bạn"
+                                  : repliedSender?.fullName || "Người dùng";
+                              })()}
+                            </div>
+
+                            <div className="reply-quoted-text">
+                              {(() => {
+                                const repliedMsg =
+                                  typeof msg.replyToMessageId === "object"
+                                    ? msg.replyToMessageId
+                                    : null;
+
+                                if (!repliedMsg)
+                                  return "Không xem được nội dung gốc";
+
+                                return getReplyPreviewText(repliedMsg);
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
                         {msg.type === "sticker" ? (
                           /* HIỂN THỊ STICKER */
                           <img
@@ -595,6 +788,33 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                         />
                         {menuMessageId === msg._id && (
                           <div className="action-menu-dropdown">
+                            <button
+                              className="menu-item"
+                              onClick={() => handleActionClick(msg, "reply")}
+                            >
+                              Trả lời
+                            </button>
+                            <button
+                              className="menu-item"
+                              onClick={() => {
+                                setReactionPickerMessageId(
+                                  reactionPickerMessageId === msg._id
+                                    ? null
+                                    : msg._id,
+                                );
+                                setMenuMessageId(null);
+                              }}
+                            >
+                              Thả cảm xúc
+                            </button>
+
+                            <button
+                              className="menu-item"
+                              onClick={() => handleActionClick(msg, "pin")}
+                            >
+                              {isPinnedMessage(msg._id) ? "Bỏ ghim" : "Ghim"}
+                            </button>
+
                             {isMe && (
                               <button
                                 className="menu-item"
@@ -603,12 +823,14 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                                 Thu hồi
                               </button>
                             )}
+
                             <button
                               className="menu-item"
                               onClick={() => handleActionClick(msg, "forward")}
                             >
                               Chuyển tiếp
                             </button>
+
                             <button
                               className="menu-item delete"
                               onClick={() => handleActionClick(msg, "delete")}
@@ -620,6 +842,39 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                       </div>
                     )}
                   </div>
+                  {msg.reactions?.length > 0 && (
+                    <div className="reaction-summary">
+                      {[
+                        ...new Map(
+                          msg.reactions.map((r) => [r.emoji, r]),
+                        ).values(),
+                      ].map((r) => {
+                        const count = msg.reactions.filter(
+                          (item) => item.emoji === r.emoji,
+                        ).length;
+
+                        return (
+                          <span key={r.emoji} className="reaction-badge">
+                            {r.emoji} {count > 1 ? count : ""}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {reactionPickerMessageId === msg._id && !msg.isRecalled && (
+                    <div className="reaction-picker">
+                      {reactionEmojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="reaction-emoji-btn"
+                          onClick={() => handleReactMessage(msg, emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -646,6 +901,38 @@ function ChatMain({ currentUserId, conversation, onNewMessage }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {replyingMessage && (
+          <div className="reply-preview-bar">
+            <div className="reply-preview-content">
+              <div className="reply-preview-title">
+                Đang trả lời{" "}
+                {(() => {
+                  const sender = getSender(replyingMessage);
+                  const senderId =
+                    typeof replyingMessage.senderId === "object"
+                      ? replyingMessage.senderId._id
+                      : replyingMessage.senderId;
+
+                  return senderId === currentUserId
+                    ? "chính bạn"
+                    : sender?.fullName || "người dùng";
+                })()}
+              </div>
+
+              <div className="reply-preview-text">
+                {getReplyPreviewText(replyingMessage)}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="reply-preview-close"
+              onClick={() => setReplyingMessage(null)}
+            >
+              ×
+            </button>
           </div>
         )}
         <div className="input-wrapper-refined">

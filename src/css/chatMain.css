@@ -523,3 +523,241 @@
 .confirm-modal .btn:hover {
   transform: translateY(-2px);
 }
+/* =========================
+   REPLY MESSAGE
+========================= */
+
+.reply-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: #f3f6fb;
+  border-left: 4px solid #0d6efd;
+  border-radius: 10px;
+}
+
+.reply-preview-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.reply-preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0d6efd;
+  margin-bottom: 2px;
+}
+
+.reply-preview-text {
+  font-size: 13px;
+  color: #4b5563;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-preview-close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0 4px;
+}
+
+.reply-preview-close:hover {
+  color: #111827;
+}
+
+.reply-quoted-box {
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  max-width: 240px;
+}
+
+.reply-quoted-sender {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.reply-quoted-text {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* reply trong tin nhắn của mình */
+.message-row-modern.me .reply-quoted-box {
+  background: rgba(255, 255, 255, 0.22);
+  border-left: 3px solid #ffffff;
+}
+
+.message-row-modern.me .reply-quoted-sender {
+  color: #ffffff;
+}
+
+.message-row-modern.me .reply-quoted-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* reply trong tin nhắn người khác */
+.message-row-modern.other .reply-quoted-box {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #0d6efd;
+}
+
+.message-row-modern.other .reply-quoted-sender {
+  color: #0d6efd;
+}
+
+.message-row-modern.other .reply-quoted-text {
+  color: #555;
+}
+.message-row-modern.me .reply-quoted-box {
+  background: rgba(255, 255, 255, 0.2);
+  border-left: 3px solid #ffffff;
+  color: #fff;
+}
+
+/* reply trong tin nhắn người khác */
+.message-row-modern.other .reply-quoted-box {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #0d6efd;
+  color: #333;
+}
+
+/* =========================
+   PINNED MESSAGE
+========================= */
+
+.pinned-message-bar {
+  background: #fff8e6;
+  border-bottom: 1px solid #f0e1a6;
+  padding: 8px 12px;
+}
+
+.pinned-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pinned-message-item {
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 193, 7, 0.12);
+  transition: 0.2s ease;
+}
+
+.pinned-message-item:hover {
+  background: rgba(255, 193, 7, 0.2);
+}
+
+.pinned-message-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d48806;
+  margin-bottom: 2px;
+}
+
+.pinned-message-text {
+  font-size: 13px;
+  color: #5c4b1f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* reply click */
+.reply-quoted-box.clickable {
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.reply-quoted-box.clickable:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+/* highlight khi nhảy tới */
+.highlight-message .bubble-card {
+  animation: highlightPulse 1.6s ease;
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.75);
+  }
+  30% {
+    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+  }
+}
+/* =========================
+   REACTION
+========================= */
+
+.reaction-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  width: fit-content;
+}
+
+.me .reaction-picker {
+  margin-left: auto;
+}
+
+.reaction-emoji-btn {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.reaction-emoji-btn:hover {
+  transform: scale(1.2);
+  background: #f3f4f6;
+}
+
+.reaction-summary {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.me .reaction-summary {
+  justify-content: flex-end;
+}
+
+.reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  font-size: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
