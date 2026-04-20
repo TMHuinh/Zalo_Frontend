@@ -52,6 +52,7 @@ function ChatMain({
   const messageMenuRef = useRef(null);
   const pinnedMenuRef = useRef(null);
   const pinnedDropdownRef = useRef(null);
+  const [actionSideMap, setActionSideMap] = useState({});
 
   const [confirmModal, setConfirmModal] = useState({
     show: false,
@@ -773,6 +774,47 @@ function ChatMain({
     }
   };
 
+  const updateActionSide = (messageId, bubbleEl) => {
+    if (!bubbleEl) return;
+
+    const rect = bubbleEl.getBoundingClientRect();
+    const actionWidth = 170; // 4 nút tròn + khoảng cách
+    const gap = 12;
+
+    const spaceLeft = rect.left;
+    const spaceRight = window.innerWidth - rect.right;
+
+    let side = "right-side";
+
+    // nếu bên phải không đủ chỗ thì chuyển action sang bên trái bubble
+    if (spaceRight < actionWidth + gap && spaceLeft > spaceRight) {
+      side = "left-side";
+    }
+
+    // nếu bên trái cũng không đủ mà bên phải đủ hơn thì ép sang phải
+    if (spaceLeft < actionWidth + gap && spaceRight >= spaceLeft) {
+      side = "right-side";
+    }
+
+    setActionSideMap((prev) => {
+      if (prev[messageId] === side) return prev;
+      return { ...prev, [messageId]: side };
+    });
+  };
+  const getVerticalPosition = (el) => {
+    if (!el) return "bottom";
+
+    const rect = el.getBoundingClientRect();
+    const spaceTop = rect.top;
+    const spaceBottom = window.innerHeight - rect.bottom;
+
+    // nếu dưới không đủ chỗ → mở lên trên
+    if (spaceBottom < 120 && spaceTop > spaceBottom) {
+      return "top";
+    }
+
+    return "bottom";
+  };
   return (
     <div className="modern-chat-container">
       <Toaster position="top-center" reverseOrder={false} />
@@ -1087,7 +1129,22 @@ function ChatMain({
               <div className="message-content-group">
                 <div className="bubble-wrapper-modern">
                   <div
-                    className="bubble-card"
+                    ref={(el) => {
+                      if (
+                        el &&
+                        (hoveredMessageId === msg._id ||
+                          menuMessageId === msg._id)
+                      ) {
+                        updateActionSide(msg._id, el);
+                      }
+                    }}
+                    className={`bubble-card ${
+                      isOnlyImage
+                        ? "image-bubble"
+                        : msg.type === "mixed"
+                          ? "mixed-bubble"
+                          : ""
+                    }`}
                     style={
                       isMediaBubble
                         ? {
@@ -1240,7 +1297,7 @@ function ChatMain({
                           menuMessageId === msg._id
                             ? "show"
                             : ""
-                        } ${isMe ? "left-side" : "right-side"}`}
+                        } ${actionSideMap[msg._id] || (isMe ? "left-side" : "right-side")}`}
                       >
                         <button
                           type="button"
@@ -1254,7 +1311,7 @@ function ChatMain({
                             )
                           }
                         >
-                          👍
+                          🙂
                         </button>
 
                         <button
@@ -1298,8 +1355,10 @@ function ChatMain({
 
                           {menuMessageId === msg._id && (
                             <div
-                              className={`action-menu-dropdown modern ${isMe ? "left" : "right"}`}
-                              onClick={(e) => e.stopPropagation()}
+                              className={`action-menu-dropdown modern 
+    ${isMe ? "left" : "right"} 
+    ${getVerticalPosition(messageRefs.current[msg._id])}
+  `}
                             >
                               <button
                                 className="menu-item"
@@ -1352,7 +1411,10 @@ function ChatMain({
                   )}
                   {reactionPickerMessageId === msg._id && !msg.isRecalled && (
                     <div
-                      className={`reaction-picker-floating ${isMe ? "me" : "other"}`}
+                      className={`reaction-picker-floating 
+    ${isMe ? "me" : "other"} 
+    ${getVerticalPosition(messageRefs.current[msg._id])}
+  `}
                     >
                       {reactionEmojis.map((emoji) => (
                         <button
