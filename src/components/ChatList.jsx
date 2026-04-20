@@ -13,6 +13,7 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import AddFriendModal from "../components/AddFriendModal";
 import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
+import toast from "react-hot-toast";
 import socket from "../socket/socket";
 import {
   FiUserPlus,
@@ -28,7 +29,6 @@ import {
 import { HiUserGroup } from "react-icons/hi";
 import CreateGroupModal from "./CreateGroupModal";
 import GroupMembersModal from "./GroupMembersModal";
-import toast, { Toaster } from "react-hot-toast";
 
 function ChatList({
   onSelectConversation,
@@ -59,12 +59,28 @@ function ChatList({
   };
 
   const handleGroupUpdate = (updatedConv) => {
+    // 1. Nếu là lệnh rời/xóa khỏi nhóm
+    if (updatedConv.isRemoved) {
+      if (typeof setConversations === "function") {
+        setConversations(prev => prev.filter(c => c._id !== updatedConv._id));
+      }
+
+      // ĐÁ RA MÀN HÌNH CHÍNH (ĐÓNG CHATMAIN) NẾU ĐANG MỞ NHÓM ĐÓ
+      if (activeConversationId === updatedConv._id) {
+        onSelectConversation?.(null);
+      }
+
+      setShowMembersModal(false);
+      return;
+    }
+
+    // 2. Nếu là cập nhật thông thường (Tên, Ảnh, Thành viên...)
     if (typeof setConversations === "function") {
       setConversations((prev) =>
         prev.map((c) => (c._id === updatedConv._id ? updatedConv : c)),
       );
     }
-    if (updatedConv.type === "group") {
+    if (updatedConv.type === "group" && updatedConv.members) {
       const formattedMembers = updatedConv.members.map((m) => ({
         id: m.userId._id || m.userId,
         fullName: m.userId.fullName,
@@ -514,12 +530,6 @@ function ChatList({
           font-size: 32px; margin: 0 auto 20px;
         }
       `}</style>
-
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        containerStyle={{ zIndex: 99999 }}
-      />
 
       <div className="d-flex align-items-center gap-2 mb-3">
         <Form.Control

@@ -52,6 +52,9 @@ const conversationApi = {
       memberIds,
     });
   },
+  leaveGroup: (conversationId) => {
+    return axiosClient.delete(`/conversation/${conversationId}/leave`);
+  },
 };
 
 export default conversationApi;
