@@ -716,6 +716,14 @@
 /* =========================
    REACTION
 ========================= */
+.reaction-picker-floating.top {
+  bottom: calc(100% + 6px);
+  top: auto;
+}
+
+.reaction-picker-floating.bottom {
+  top: calc(100% + 6px);
+}
 
 .reaction-picker {
   display: flex;
@@ -789,6 +797,7 @@
   pointer-events: none;
   transition: all 0.18s ease;
   z-index: 5;
+  
 }
 
 .message-hover-actions.show {
@@ -846,10 +855,18 @@
   left: 0;
 }
 
+.action-menu-dropdown.modern.top {
+  bottom: calc(100% + 8px);
+  top: auto;
+}
+
+.action-menu-dropdown.modern.bottom {
+  top: calc(100% + 8px);
+}
 .menu-item {
   width: 100%;
   border: none;
-  background: transparent;
+  background: #ffffff;
   text-align: left;
   padding: 10px 12px;
   border-radius: 10px;
@@ -904,197 +921,7 @@
   transform: scale(1.18);
   background: #f3f4f6;
 }
-/* .pinned-bar-modern {
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 10px 14px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-  position: relative;
-  z-index: 4;
-}
 
-.pinned-bar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pinned-bar-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.pinned-bar-icon {
-  font-size: 18px;
-}
-
-.pinned-bar-title-group {
-  min-width: 0;
-}
-
-.pinned-bar-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.pinned-bar-subtitle {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.pinned-toggle-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: #f3f4f6;
-  cursor: pointer;
-  font-size: 16px;
-  color: #374151;
-  transition: all 0.2s ease;
-}
-
-.pinned-toggle-btn:hover {
-  background: #e5e7eb;
-}
-
-.pinned-toggle-btn.expanded {
-  transform: rotate(180deg);
-}
-
-.pinned-preview-single {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f8fafc;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.pinned-preview-single:hover {
-  background: #eef2f7;
-}
-
-.pinned-preview-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-  margin-bottom: 4px;
-}
-
-.pinned-preview-text {
-  font-size: 13px;
-  color: #374151;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pinned-list-modern {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.pinned-item-modern {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 10px 12px;
-  position: relative;
-}
-
-.pinned-item-body {
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.pinned-item-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-  margin-bottom: 4px;
-}
-
-.pinned-item-text {
-  font-size: 13px;
-  color: #374151;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pinned-item-actions {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.pinned-more-btn {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #4b5563;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.pinned-more-btn:hover {
-  background: #f3f4f6;
-}
-
-.pinned-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 120px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-  padding: 6px;
-  z-index: 30;
-}
-
-.pinned-dropdown-item {
-  width: 100%;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.pinned-dropdown-item:hover {
-  background: #f3f4f6;
-}
-
-.pinned-dropdown-item.unpin {
-  color: #dc2626;
-} */
-
-/* =========================
-   PINNED BAR - FACEBOOK STYLE
-========================= */
 
 .pinned-bar-facebook {
   background: #fff;
