@@ -3,7 +3,7 @@ import { Modal, Button, Form, Image, Badge } from "react-bootstrap";
 import friendshipApi from "../api/friendshipApi";
 import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
-import toast, { Toaster } from "react-hot-toast"; // 👈 Nhớ import thêm Toaster ở đây
+import toast from "react-hot-toast"; // 👈 Nhớ import thêm Toaster ở đây
 
 function CreateGroupModal({ onClose, onCreated }) {
   const [friends, setFriends] = useState([]);
@@ -62,9 +62,10 @@ function CreateGroupModal({ onClose, onCreated }) {
       });
 
       toast.success("Tạo nhóm thành công! 🎉");
-
       onCreated?.(res.data.data || res.data.result);
-      onClose();
+      setTimeout(() => {
+        onClose();
+      }, 300);
     } catch (err) {
       console.log(err);
       toast.error("Tạo nhóm thất bại, vui lòng thử lại!");
@@ -73,9 +74,6 @@ function CreateGroupModal({ onClose, onCreated }) {
 
   return (
     <Modal show onHide={onClose} centered>
-      
-      {/* 🔥 ĐẶT TOASTER TRỰC TIẾP VÀO TRONG MODAL, ÉP Z-INDEX > 1055 (Mặc định của Bootstrap Modal) */}
-      <Toaster position="top-center" reverseOrder={false} containerStyle={{ zIndex: 999999 }} />
 
       <Modal.Header closeButton>
         <Modal.Title style={{ fontSize: "18px", fontWeight: "bold" }}>

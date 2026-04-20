@@ -4,6 +4,7 @@ import Chat from "./pages/Chat";
 import PrivateRoute from "./components/PrivateRoute";
 import ChangePassword from "./components/ChangePassword";
 import Policy from "./pages/Policy";
+import { Toaster } from "react-hot-toast";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -65,6 +66,12 @@ function App() {
   return (
     <BrowserRouter>
       <ToastContainer position="top-right" autoClose={2500} theme="colored" />
+
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        containerStyle={{ zIndex: 999999999 }}
+      />
 
       <Routes>
         <Route path="/" element={<Login />} />

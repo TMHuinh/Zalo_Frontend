@@ -5,7 +5,7 @@ import AddFriendModal from "../components/AddFriendModal";
 import CreateGroupModal from "./CreateGroupModal";
 import { FiUserPlus } from "react-icons/fi";
 import { HiUserGroup } from "react-icons/hi";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import "../css/contactsPanel.css";
 
 function ContactsPanel({ contactView, setContactView, onSearch }) {
@@ -33,12 +33,6 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
         height: "100%",
       }}
     >
-      {/* 🔥 FIX Z-INDEX Ở ĐÂY ĐỂ NỔI LÊN TRÊN MODAL */}
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        containerStyle={{ zIndex: 99999 }}
-      />
 
       {/* 🔍 SEARCH (NEW UI) */}
       <div className="d-flex align-items-center gap-2 mb-3">

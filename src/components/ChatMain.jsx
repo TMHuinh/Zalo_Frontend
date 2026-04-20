@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import socket from "../socket/socket";
 import messageApi from "../api/messageApi";
 import conversationApi from "../api/conversationApi";
+import toast from "react-hot-toast";
 import userApi from "../api/userApi";
 import StickerPicker from "../components/StickerPicker";
 import {
@@ -18,7 +19,6 @@ import {
   FiShare2,
 } from "react-icons/fi";
 import { Modal, Button, ListGroup, Image } from "react-bootstrap";
-import toast, { Toaster } from "react-hot-toast";
 import "../css/chatMain.css";
 import { HiUserGroup } from "react-icons/hi";
 
@@ -817,8 +817,6 @@ function ChatMain({
   };
   return (
     <div className="modern-chat-container">
-      <Toaster position="top-center" reverseOrder={false} />
-
       {/* HEADER */}
       <div className="chat-header-modern">
         <div className="header-content">
@@ -1378,12 +1376,12 @@ function ChatMain({
                                 </button>
                               )}
 
-                              <button
+                              {/* <button
                                 className="menu-item delete"
                                 onClick={() => handleActionClick(msg, "delete")}
                               >
                                 Xóa phía tôi
-                              </button>
+                              </button> */}
                             </div>
                           )}
                         </div>
