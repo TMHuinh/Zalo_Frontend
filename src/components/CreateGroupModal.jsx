@@ -3,7 +3,7 @@ import { Modal, Button, Form, Image, Badge } from "react-bootstrap";
 import friendshipApi from "../api/friendshipApi";
 import conversationApi from "../api/conversationApi";
 import { getUserIdFromToken } from "../utils/auth";
-import toast, { Toaster } from "react-hot-toast"; // 👈 Nhớ import thêm Toaster ở đây
+import toast, { Toaster } from "react-hot-toast"; 
 
 function CreateGroupModal({ onClose, onCreated }) {
   const [friends, setFriends] = useState([]);
