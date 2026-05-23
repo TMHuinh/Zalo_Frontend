@@ -4,23 +4,13 @@ import messageApi from "../api/messageApi";
 import conversationApi from "../api/conversationApi";
 import toast from "react-hot-toast";
 import userApi from "../api/userApi";
-import StickerPicker from "../components/StickerPicker";
-import {
-  FiPaperclip,
-  FiSend,
-  FiMoreHorizontal,
-  FiImage,
-  FiDownload,
-  FiPlusCircle,
-  FiSmile,
-  FiSearch,
-  FiAlertCircle,
-  FiCornerUpLeft,
-  FiShare2,
-} from "react-icons/fi";
-import { Modal, Button, ListGroup, Image } from "react-bootstrap";
 import "../css/chatMain.css";
-import { HiUserGroup } from "react-icons/hi";
+import ChatHeader from "./ChatHeader";
+import PinnedBar from "./PinnedBar";
+import MessageList from "./MessageList";
+import ChatFooter from "./ChatFooter";
+import ForwardModal from "./ForwardModal";
+import ConfirmModal from "./ConfirmModal";
 
 function ChatMain({
   currentUserId,
@@ -817,866 +807,86 @@ function ChatMain({
   };
   return (
     <div className="modern-chat-container">
-      {/* HEADER */}
-      <div className="chat-header-modern">
-        <div className="header-content">
-          <div className="avatar-wrapper">
-            {isGroup ? (
-              // Kiểm tra nếu nhóm có avatar thì hiện ảnh, không thì hiện icon giống ChatList
-              conversation?.avatarUrl ? (
-                <img
-                  src={conversation.avatarUrl}
-                  alt="group-avt"
-                  className="main-avatar"
-                  style={{
-                    width: 44,
-                    height: 44,
-                    objectFit: "cover",
-                    borderRadius: "50%",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #00c6ff, #0072ff)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                    boxShadow: "0 4px 10px rgba(0, 114, 255, 0.3)",
-                  }}
-                >
-                  {/* Nhớ import { HiUserGroup } from "react-icons/hi" ở đầu file */}
-                  <HiUserGroup size={24} />
-                </div>
-              )
-            ) : chatPartner?.avatarUrl ? (
-              <img
-                src={chatPartner.avatarUrl}
-                alt=""
-                className="main-avatar"
-                style={{ objectFit: "cover" }}
-              />
-            ) : (
-              <div
-                className="text-avatar"
-                style={{
-                  background: "linear-gradient(135deg,#6366f1,#3b82f6)",
-                }}
-              >
-                {chatPartner?.fullName?.charAt(0) || "U"}
-              </div>
-            )}
+      <ChatHeader
+        isGroup={isGroup}
+        conversation={conversation}
+        chatPartner={chatPartner}
+      />
 
-            {/* Chấm xanh online chỉ hiện cho chat cá nhân */}
-            {!isGroup && chatPartner?.isOnline && (
-              <div
-                className="status-indicator online"
-                style={{ display: "block" }}
-              ></div>
-            )}
-          </div>
+      <PinnedBar
+        pinnedMessages={pinnedMessages}
+        showAllPinned={showAllPinned}
+        setShowAllPinned={setShowAllPinned}
+        pinnedMenuId={pinnedMenuId}
+        setPinnedMenuId={setPinnedMenuId}
+        pinnedMenuRef={pinnedMenuRef}
+        pinnedDropdownRef={pinnedDropdownRef}
+        scrollToMessage={scrollToMessage}
+        getReplyPreviewText={getReplyPreviewText}
+        handleUnpinFromBar={handleUnpinFromBar}
+      />
 
-          <div className="user-details">
-            <h3 className="user-name">
-              {isGroup
-                ? conversation.name || "Nhóm chat"
-                : chatPartner?.fullName}
-            </h3>
-            <span
-              className={`user-status-text ${chatPartner?.isOnline ? "online" : "offline"}`}
-            >
-              {isGroup
-                ? `${conversation.members?.length || 0} thành viên`
-                : chatPartner?.isOnline
-                  ? "Đang hoạt động"
-                  : "Offline"}
-            </span>
-          </div>
-        </div>
-      </div>
-      {pinnedMessages.length > 0 &&
-        (() => {
-          const firstPinned = pinnedMessages[0]?.messageId || pinnedMessages[0];
-          const extraCount = pinnedMessages.length - 1;
+      <MessageList
+        messages={messages}
+        currentUserId={currentUserId}
+        conversation={conversation}
+        isGroup={isGroup}
+        getMessageRef={(id) => messageRefs.current[id]}
+        setMessageRef={(id, el) => { messageRefs.current[id] = el; }}
+        highlightedMessageId={highlightedMessageId}
+        hoveredMessageId={hoveredMessageId}
+        setHoveredMessageId={setHoveredMessageId}
+        menuMessageId={menuMessageId}
+        setMenuMessageId={setMenuMessageId}
+        reactionPickerMessageId={reactionPickerMessageId}
+        setReactionPickerMessageId={setReactionPickerMessageId}
+        actionSideMap={actionSideMap}
+        updateActionSide={updateActionSide}
+        getVerticalPosition={getVerticalPosition}
+        messageMenuRef={messageMenuRef}
+        getUserColor={getUserColor}
+        getSender={getSender}
+        getReplyPreviewText={getReplyPreviewText}
+        scrollToMessage={scrollToMessage}
+        handleActionClick={handleActionClick}
+        handleReactMessage={handleReactMessage}
+        isPinnedMessage={isPinnedMessage}
+        reactionEmojis={reactionEmojis}
+        isAnyMenuOpen={isAnyMenuOpen}
+        bottomRef={bottomRef}
+      />
 
-          return (
-            <div className="pinned-bar-facebook">
-              <div className="pinned-bar-facebook-main">
-                <div className="pinned-facebook-left">
-                  <div className="pinned-facebook-icon">💬</div>
+      <ChatFooter
+        input={input}
+        setInput={setInput}
+        files={files}
+        setFiles={setFiles}
+        preview={preview}
+        setPreview={setPreview}
+        replyingMessage={replyingMessage}
+        setReplyingMessage={setReplyingMessage}
+        handleSend={handleSend}
+        handleSendSticker={handleSendSticker}
+        getSender={getSender}
+        currentUserId={currentUserId}
+        getReplyPreviewText={getReplyPreviewText}
+      />
 
-                  <div
-                    className="pinned-facebook-content"
-                    onClick={() => {
-                      if (!firstPinned?._id) return;
-                      scrollToMessage(firstPinned._id);
-                      setPinnedMenuId(null);
-                    }}
-                  >
-                    <div className="pinned-facebook-title">Tin nhắn</div>
-                    <div className="pinned-facebook-text">
-                      {getReplyPreviewText(firstPinned)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pinned-facebook-actions">
-                  {/* Case nhiều tin */}
-                  {extraCount > 0 && (
-                    <button
-                      type="button"
-                      className={`pinned-facebook-more ${showAllPinned ? "expanded" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowAllPinned((prev) => !prev);
-                        setPinnedMenuId(null);
-                      }}
-                    >
-                      +{extraCount} ghim <span className="caret">▾</span>
-                    </button>
-                  )}
-
-                  {/* Case chỉ có 1 tin */}
-                  {extraCount === 0 && (
-                    <div
-                      className="pinned-single-menu-wrap"
-                      ref={
-                        pinnedMenuId === firstPinned?._id ? pinnedMenuRef : null
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="pinned-single-more-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPinnedMenuId((prev) =>
-                            prev === firstPinned?._id ? null : firstPinned?._id,
-                          );
-                        }}
-                      >
-                        <FiMoreHorizontal />
-                      </button>
-
-                      {pinnedMenuId === firstPinned?._id && (
-                        <div
-                          className="pinned-single-dropdown"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            className="pinned-single-dropdown-item unpin"
-                            onClick={() => handleUnpinFromBar(firstPinned)}
-                          >
-                            Bỏ ghim
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {showAllPinned && pinnedMessages.length > 1 && (
-                <div
-                  className="pinned-facebook-dropdown"
-                  ref={pinnedDropdownRef}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="pinned-facebook-dropdown-header">
-                    <span>Danh sách ghim ({pinnedMessages.length})</span>
-                    <button
-                      type="button"
-                      className="pinned-facebook-collapse"
-                      onClick={() => setShowAllPinned(false)}
-                    >
-                      Thu gọn <span>⌃</span>
-                    </button>
-                  </div>
-
-                  <div className="pinned-facebook-list">
-                    {pinnedMessages.map((item, index) => {
-                      const pinnedMsg = item.messageId || item;
-                      const pinnedId = pinnedMsg?._id;
-
-                      return (
-                        <div
-                          key={pinnedId || index}
-                          className="pinned-facebook-item"
-                        >
-                          <div
-                            className="pinned-facebook-item-body"
-                            onClick={() => {
-                              if (!pinnedId) return;
-                              scrollToMessage(pinnedId);
-                              setShowAllPinned(false);
-                              setPinnedMenuId(null);
-                            }}
-                          >
-                            <div className="pinned-facebook-item-title">
-                              Tin nhắn
-                            </div>
-                            <div className="pinned-facebook-item-text">
-                              {getReplyPreviewText(pinnedMsg)}
-                            </div>
-                          </div>
-
-                          <div
-                            className="pinned-facebook-item-actions"
-                            ref={
-                              pinnedMenuId === pinnedId ? pinnedMenuRef : null
-                            }
-                          >
-                            <button
-                              type="button"
-                              className="pinned-facebook-item-more"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPinnedMenuId((prev) =>
-                                  prev === pinnedId ? null : pinnedId,
-                                );
-                              }}
-                            >
-                              <FiMoreHorizontal />
-                            </button>
-
-                            {pinnedMenuId === pinnedId && (
-                              <div
-                                className="pinned-facebook-item-menu"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  className="pinned-facebook-item-menu-btn unpin"
-                                  onClick={() => handleUnpinFromBar(item)}
-                                >
-                                  Bỏ ghim
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-      <div
-        className={`chat-body-modern ${isAnyMenuOpen ? "scroll-locked" : ""}`}
-      >
-        {messages.map((msg, index) => {
-          if (msg.isDeleted) return null;
-          const senderId =
-            typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
-          const isMe = senderId === currentUserId;
-          const sender = getSender(msg);
-          const nextMsg = messages[index + 1];
-          const nextSenderId = nextMsg
-            ? typeof nextMsg.senderId === "object"
-              ? nextMsg.senderId._id
-              : nextMsg.senderId
-            : null;
-          const isLastOfBlock = senderId !== nextSenderId;
-
-          // 🔥 CẢI TIẾN LOGIC: Nếu đã thu hồi (isRecalled) thì KHÔNG tính là only image nữa
-          const isSticker = msg.type === "sticker";
-
-          const isOnlyImage =
-            !msg.isRecalled &&
-            !isSticker &&
-            !msg.content &&
-            msg.attachments?.length > 0 &&
-            msg.attachments.every((f) => f.type === "image");
-
-          const isMediaBubble = !msg.isRecalled && (isOnlyImage || isSticker);
-
-          return (
-            <div
-              key={msg._id}
-              ref={(el) => {
-                if (el) messageRefs.current[msg._id] = el;
-              }}
-              className={`message-row-modern ${isMe ? "me" : "other"} ${isLastOfBlock ? "margin-block" : ""} ${
-                highlightedMessageId === msg._id ? "highlight-message" : ""
-              }`}
-              onMouseEnter={() => setHoveredMessageId(msg._id)}
-              onMouseLeave={() => {
-                setHoveredMessageId((prev) => (prev === msg._id ? null : prev));
-              }}
-            >
-              {!isMe && (
-                <div className="avatar-side">
-                  {isLastOfBlock && (
-                    <img
-                      src={
-                        sender?.avatarUrl ||
-                        `https://ui-avatars.com/api/?name=${sender?.fullName}`
-                      }
-                      alt="avt"
-                      className="mini-avatar"
-                    />
-                  )}
-                </div>
-              )}
-              <div className="message-content-group">
-                <div className="bubble-wrapper-modern">
-                  <div
-                    ref={(el) => {
-                      if (
-                        el &&
-                        (hoveredMessageId === msg._id ||
-                          menuMessageId === msg._id)
-                      ) {
-                        updateActionSide(msg._id, el);
-                      }
-                    }}
-                    className={`bubble-card ${
-                      isOnlyImage
-                        ? "image-bubble"
-                        : msg.type === "mixed"
-                          ? "mixed-bubble"
-                          : ""
-                    }`}
-                    style={
-                      isMediaBubble
-                        ? {
-                            background: "transparent",
-                            padding: 0,
-                            boxShadow: "none",
-                          }
-                        : {}
-                    }
-                  >
-                    {isGroup && !isMe && isLastOfBlock && (
-                      <span
-                        className="sender-label-zalo"
-                        style={{
-                          color: getUserColor(senderId),
-                          marginLeft: isOnlyImage ? "4px" : "0",
-                          marginBottom: isOnlyImage ? "4px" : "3px",
-                          textShadow: isOnlyImage
-                            ? "0 1px 2px rgba(255,255,255,0.8)"
-                            : "none",
-                        }}
-                      >
-                        {sender?.fullName}
-                      </span>
-                    )}
-
-                    {msg.isRecalled ? (
-                      // KHI THU HỒI SẼ HIỆN RA KHUNG BÌNH THƯỜNG
-                      <div className="recalled-msg">
-                        🚫 Tin nhắn đã được thu hồi
-                      </div>
-                    ) : (
-                      <div className="msg-inner-content">
-                        {msg.replyToMessageId && (
-                          <div
-                            className="reply-quoted-box clickable"
-                            onClick={() => {
-                              const replyId =
-                                typeof msg.replyToMessageId === "object"
-                                  ? msg.replyToMessageId._id
-                                  : msg.replyToMessageId;
-
-                              scrollToMessage(replyId);
-                            }}
-                          >
-                            <div className="reply-quoted-sender">
-                              {(() => {
-                                const repliedMsg =
-                                  typeof msg.replyToMessageId === "object"
-                                    ? msg.replyToMessageId
-                                    : null;
-
-                                if (!repliedMsg) return "Tin nhắn đã trả lời";
-
-                                const repliedSender = getSender(repliedMsg);
-                                const repliedSenderId =
-                                  typeof repliedMsg.senderId === "object"
-                                    ? repliedMsg.senderId._id
-                                    : repliedMsg.senderId;
-
-                                return repliedSenderId === currentUserId
-                                  ? "Bạn"
-                                  : repliedSender?.fullName || "Người dùng";
-                              })()}
-                            </div>
-
-                            <div className="reply-quoted-text">
-                              {(() => {
-                                const repliedMsg =
-                                  typeof msg.replyToMessageId === "object"
-                                    ? msg.replyToMessageId
-                                    : null;
-
-                                if (!repliedMsg)
-                                  return "Không xem được nội dung gốc";
-
-                                return getReplyPreviewText(repliedMsg);
-                              })()}
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.type === "sticker" ? (
-                          /* HIỂN THỊ STICKER */
-                          <img
-                            src={msg.content}
-                            alt="sticker"
-                            className="msg-sticker-render"
-                            style={{
-                              maxWidth: "140px",
-                              display: "block",
-                              cursor: "pointer",
-                              borderRadius: "8px",
-                            }}
-                            onClick={() => window.open(msg.content)}
-                          />
-                        ) : (
-                          /* HIỂN THỊ TEXT VÀ FILE NHƯ CŨ */
-                          <>
-                            {msg.content && (
-                              <p
-                                className="msg-text"
-                                dangerouslySetInnerHTML={{
-                                  __html: msg.content,
-                                }}
-                              />
-                            )}
-                            {msg.attachments?.map((file, i) => (
-                              <div key={i} className="attachment-modern">
-                                {file.type === "image" ? (
-                                  <img
-                                    src={file.url}
-                                    alt=""
-                                    className="msg-img-modern"
-                                    style={
-                                      isOnlyImage && i === 0
-                                        ? { marginTop: 0 }
-                                        : {}
-                                    }
-                                    onClick={() => window.open(file.url)}
-                                  />
-                                ) : (
-                                  <div
-                                    className="file-card-modern"
-                                    onClick={() => window.open(file.url)}
-                                  >
-                                    <FiDownload /> <span>{file.fileName}</span>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Giữ nguyên phần Meta (thời gian) */}
-                        <div className="msg-meta-zalo">
-                          <span className="timestamp-zalo">
-                            {new Date(msg.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {!msg.isRecalled && (
-                      <div
-                        className={`message-hover-actions ${
-                          hoveredMessageId === msg._id ||
-                          menuMessageId === msg._id
-                            ? "show"
-                            : ""
-                        } ${actionSideMap[msg._id] || (isMe ? "left-side" : "right-side")}`}
-                      >
-                        <button
-                          type="button"
-                          className="hover-action-btn"
-                          title="Thả cảm xúc"
-                          onClick={() =>
-                            setReactionPickerMessageId(
-                              reactionPickerMessageId === msg._id
-                                ? null
-                                : msg._id,
-                            )
-                          }
-                        >
-                          🙂
-                        </button>
-
-                        <button
-                          type="button"
-                          className="hover-action-btn"
-                          title="Trả lời"
-                          onClick={() => handleActionClick(msg, "reply")}
-                        >
-                          <FiCornerUpLeft />
-                        </button>
-
-                        <button
-                          type="button"
-                          className="hover-action-btn"
-                          title="Chuyển tiếp"
-                          onClick={() => handleActionClick(msg, "forward")}
-                        >
-                          <FiShare2 />
-                        </button>
-
-                        <div
-                          className="hover-action-menu-wrap"
-                          ref={
-                            menuMessageId === msg._id ? messageMenuRef : null
-                          }
-                        >
-                          <button
-                            type="button"
-                            className="hover-action-btn"
-                            title="Khác"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMenuMessageId((prev) =>
-                                prev === msg._id ? null : msg._id,
-                              );
-                              setReactionPickerMessageId(null);
-                            }}
-                          >
-                            <FiMoreHorizontal />
-                          </button>
-
-                          {menuMessageId === msg._id && (
-                            <div
-                              className={`action-menu-dropdown modern 
-    ${isMe ? "left" : "right"} 
-    ${getVerticalPosition(messageRefs.current[msg._id])}
-  `}
-                            >
-                              <button
-                                className="menu-item"
-                                onClick={() => handleActionClick(msg, "pin")}
-                              >
-                                {isPinnedMessage(msg._id) ? "Gỡ ghim" : "Ghim"}
-                              </button>
-
-                              {isMe && (
-                                <button
-                                  className="menu-item"
-                                  onClick={() =>
-                                    handleActionClick(msg, "revoke")
-                                  }
-                                >
-                                  Thu hồi
-                                </button>
-                              )}
-
-                              {/* <button
-                                className="menu-item delete"
-                                onClick={() => handleActionClick(msg, "delete")}
-                              >
-                                Xóa phía tôi
-                              </button> */}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {msg.reactions?.length > 0 && (
-                    <div className="reaction-summary">
-                      {[
-                        ...new Map(
-                          msg.reactions.map((r) => [r.emoji, r]),
-                        ).values(),
-                      ].map((r) => {
-                        const count = msg.reactions.filter(
-                          (item) => item.emoji === r.emoji,
-                        ).length;
-
-                        return (
-                          <span key={r.emoji} className="reaction-badge">
-                            {r.emoji} {count > 1 ? count : ""}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {reactionPickerMessageId === msg._id && !msg.isRecalled && (
-                    <div
-                      className={`reaction-picker-floating 
-    ${isMe ? "me" : "other"} 
-    ${getVerticalPosition(messageRefs.current[msg._id])}
-  `}
-                    >
-                      {reactionEmojis.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className="reaction-emoji-btn"
-                          onClick={() => handleReactMessage(msg, emoji)}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* FOOTER */}
-      <div className="chat-footer-modern">
-        {preview.length > 0 && (
-          <div className="preview-bar-modern">
-            {preview.map((p, i) => (
-              <div key={i} className="preview-thumb">
-                <img src={p} alt="" />
-                <div
-                  className="remove-pre"
-                  onClick={() => {
-                    setFiles([]);
-                    setPreview([]);
-                  }}
-                >
-                  ×
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {replyingMessage && (
-          <div className="reply-preview-bar">
-            <div className="reply-preview-content">
-              <div className="reply-preview-title">
-                Đang trả lời{" "}
-                {(() => {
-                  const sender = getSender(replyingMessage);
-                  const senderId =
-                    typeof replyingMessage.senderId === "object"
-                      ? replyingMessage.senderId._id
-                      : replyingMessage.senderId;
-
-                  return senderId === currentUserId
-                    ? "chính bạn"
-                    : sender?.fullName || "người dùng";
-                })()}
-              </div>
-
-              <div className="reply-preview-text">
-                {getReplyPreviewText(replyingMessage)}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="reply-preview-close"
-              onClick={() => setReplyingMessage(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        <div className="input-wrapper-refined">
-          <div className="action-buttons-left">
-            <input
-              type="file"
-              id="f-upload-modern"
-              hidden
-              multiple
-              onChange={(e) => {
-                const selected = Array.from(e.target.files);
-                setFiles(selected);
-                setPreview(selected.map((f) => URL.createObjectURL(f)));
-              }}
-            />
-            <button
-              className="btn-action-refined pulse"
-              onClick={() => document.getElementById("f-upload-modern").click()}
-            >
-              <FiPlusCircle />
-            </button>
-            <button
-              className="btn-action-refined"
-              onClick={() => document.getElementById("f-upload-modern").click()}
-            >
-              <FiImage />
-            </button>
-          </div>
-          <div
-            className={`input-field-refined ${input.trim() ? "has-content" : ""}`}
-          >
-            <textarea
-              className="textarea-refined"
-              placeholder="Viết tin nhắn..."
-              rows="1"
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = "inherit";
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                  e.target.style.height = "inherit";
-                }
-              }}
-            />
-            <StickerPicker onSelect={handleSendSticker} />
-            {/* <button className="btn-emoji-refined">
-              <FiSmile />
-            </button> */}
-          </div>
-          <div className="action-buttons-right">
-            <button
-              className={`btn-send-refined ${input.trim() || files.length > 0 ? "active" : ""}`}
-              onClick={handleSend}
-              disabled={!input.trim() && files.length === 0}
-            >
-              <FiSend />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* MODAL FORWARD */}
-      <Modal
+      <ForwardModal
         show={forwardModal}
         onHide={() => setForwardModal(false)}
-        centered
-        className="forward-modal shadow-lg"
-      >
-        <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: "18px", fontWeight: "bold" }}>
-            Chuyển tiếp tin nhắn
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: "0" }}>
-          <div className="forward-search p-3">
-            <div className="search-box-wrapper">
-              <FiSearch />
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          <div
-            className="forward-list"
-            style={{ maxHeight: "400px", overflowY: "auto" }}
-          >
-            <ListGroup variant="flush">
-              {forwardList.map((c) => (
-                <ListGroup.Item
-                  key={c._id}
-                  onClick={() => handleSendForward(c._id)}
-                  className="d-flex align-items-center gap-3 py-3 border-0 border-bottom"
-                  style={{ cursor: "pointer", backgroundColor: "transparent" }}
-                >
-                  <div className="forward-avatar">
-                    {c.isGroupChat ? (
-                      <div className="text-avatar-forward">👥</div>
-                    ) : c.otherUser?.avatarUrl ? (
-                      <Image
-                        src={c.otherUser.avatarUrl}
-                        roundedCircle
-                        width={40}
-                        height={40}
-                      />
-                    ) : (
-                      <div className="text-avatar-forward">
-                        {c.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="forward-info">
-                    <div className="name" style={{ fontWeight: "500" }}>
-                      {c.name}
-                    </div>
-                    <div
-                      className="sub"
-                      style={{ fontSize: "12px", color: "#72808e" }}
-                    >
-                      {c.isGroupChat
-                        ? `${c.members.length} thành viên`
-                        : "Cá nhân"}
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    className="ms-auto"
-                    style={{ borderRadius: "20px", padding: "4px 12px" }}
-                  >
-                    Gửi
-                  </Button>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          </div>
-        </Modal.Body>
-      </Modal>
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        forwardList={forwardList}
+        handleSendForward={handleSendForward}
+      />
 
-      <Modal
+      <ConfirmModal
         show={confirmModal.show}
+        type={confirmModal.type}
         onHide={() => setConfirmModal({ show: false, type: "", msg: null })}
-        centered
-        className="confirm-modal"
-      >
-        <Modal.Body className="text-center p-4">
-          <div className="confirm-icon mb-3">
-            <FiAlertCircle
-              size={50}
-              color={confirmModal.type === "revoke" ? "#ff9800" : "#f44336"}
-            />
-          </div>
-          <h5 className="mb-2" style={{ fontWeight: "bold" }}>
-            {confirmModal.type === "revoke"
-              ? "Thu hồi tin nhắn?"
-              : "Xóa tin nhắn?"}
-          </h5>
-          <p className="text-muted mb-4">
-            {confirmModal.type === "revoke"
-              ? "Tin nhắn này sẽ bị gỡ bỏ đối với tất cả thành viên."
-              : "Tin nhắn này sẽ chỉ bị xóa ở phía bạn."}
-          </p>
-          <div className="d-flex gap-2 justify-content-center">
-            <Button
-              variant="light"
-              onClick={() =>
-                setConfirmModal({ show: false, type: "", msg: null })
-              }
-              style={{ borderRadius: "10px", padding: "8px 25px" }}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant={confirmModal.type === "revoke" ? "warning" : "danger"}
-              onClick={executeAction}
-              style={{
-                borderRadius: "10px",
-                padding: "8px 25px",
-                color: "white",
-              }}
-            >
-              {confirmModal.type === "revoke" ? "Thu hồi" : "Xóa"}
-            </Button>
-          </div>
-        </Modal.Body>
-      </Modal>
+        onConfirm={executeAction}
+      />
     </div>
   );
 }

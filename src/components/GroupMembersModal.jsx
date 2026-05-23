@@ -239,7 +239,7 @@ function GroupMembersModal({ show, onHide, members, conversationId, currentUserI
               </>
             )}
           </div>
-          {!isAdding && !isTransferring && isOwner && (
+          {!isAdding && !isTransferring && (
             <Button variant="primary" size="sm" className="rounded-pill px-3 shadow-sm" onClick={() => setIsAdding(true)}>
               <FiUserPlus className="me-1" /> Mời
             </Button>
