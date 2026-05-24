@@ -21,10 +21,8 @@ import {
   FiTrash2,
   FiUsers,
   FiEdit3,
-  FiAlertTriangle,
   FiCamera,
   FiLogOut,
-  FiCheckCircle,
 } from "react-icons/fi";
 import { HiUserGroup } from "react-icons/hi";
 import CreateGroupModal from "./CreateGroupModal";
@@ -53,41 +51,58 @@ function ChatList({
   const fileInputRef = useRef(null);
   const currentUserId = getUserIdFromToken();
 
-  const stripHtml = (html) => {
-    if (!html) return "";
-    return html.replace(/<[^>]+>/g, "");
-  };
+  // Dùng Ref để lưu ID cuộc trò chuyện hiện tại nhằm KHÔNG RENDER LẠI useEffect chứa Socket
+  const activeConvRef = useRef(activeConversationId);
+  useEffect(() => {
+    activeConvRef.current = activeConversationId;
+    if (activeConversationId) {
+      setUnread((prev) => ({ ...prev, [activeConversationId]: 0 }));
+    }
+  }, [activeConversationId]);
+
+  const stripHtml = (html) => (html ? html.replace(/<[^>]+>/g, "") : "");
 
   const handleGroupUpdate = (updatedConv) => {
-    // 1. Nếu là lệnh rời/xóa khỏi nhóm
     if (updatedConv.isRemoved) {
-      if (typeof setConversations === "function") {
-        setConversations(prev => prev.filter(c => c._id !== updatedConv._id));
-      }
-
-      // ĐÁ RA MÀN HÌNH CHÍNH (ĐÓNG CHATMAIN) NẾU ĐANG MỞ NHÓM ĐÓ
-      if (activeConversationId === updatedConv._id) {
+      setConversations((prev) => prev.filter((c) => c._id !== updatedConv._id));
+      if (activeConversationId === updatedConv._id)
         onSelectConversation?.(null);
-      }
-
       setShowMembersModal(false);
       return;
     }
-
-    // 2. Nếu là cập nhật thông thường (Tên, Ảnh, Thành viên...)
-    if (typeof setConversations === "function") {
-      setConversations((prev) =>
-        prev.map((c) => (c._id === updatedConv._id ? updatedConv : c)),
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c._id === updatedConv._id) {
+          // BẢO VỆ DỮ LIỆU: Chỉ ghi đè nếu API trả về tin nhắn mới hơn socket
+          const merged = { ...c, ...updatedConv };
+          if (c.lastMessageId && updatedConv.lastMessageId) {
+            const oldTime = new Date(c.lastMessageId.createdAt || 0);
+            const newTime = new Date(updatedConv.lastMessageId.createdAt || 0);
+            if (oldTime > newTime) {
+              merged.lastMessageId = c.lastMessageId; // Giữ lại tin nhắn socket
+            }
+          } else if (c.lastMessageId && !updatedConv.lastMessageId) {
+            merged.lastMessageId = c.lastMessageId; // Giữ lại tin nhắn socket
+          }
+          return merged;
+        }
+        return c;
+      })
+    );
+    if (activeConversationId === updatedConv._id) {
+      onSelectConversation?.((prev) =>
+        prev ? { ...prev, ...updatedConv } : prev,
       );
     }
     if (updatedConv.type === "group" && updatedConv.members) {
-      const formattedMembers = updatedConv.members.map((m) => ({
-        id: m.userId._id || m.userId,
-        fullName: m.userId.fullName,
-        avatarUrl: m.userId.avatarUrl,
-        role: m.role,
-      }));
-      setMembersList(formattedMembers);
+      setMembersList(
+        updatedConv.members.map((m) => ({
+          id: m.userId._id || m.userId,
+          fullName: m.userId.fullName,
+          avatarUrl: m.userId.avatarUrl,
+          role: m.role,
+        })),
+      );
     }
   };
 
@@ -114,23 +129,17 @@ function ChatList({
     formData.append("name", editGroupName);
     if (selectedFile) formData.append("avatar", selectedFile);
 
-    const updatePromise = conversationApi.updateGroupInfo(
-      targetGroup,
-      formData,
-    );
-    toast.promise(updatePromise, {
+    toast.promise(conversationApi.updateGroupInfo(targetGroup, formData), {
       loading: "Đang lưu thay đổi...",
       success: (res) => {
         const updated = res.data.result;
-        if (typeof setConversations === "function") {
-          setConversations((prev) =>
-            prev.map((c) =>
-              c._id === targetGroup
-                ? { ...c, name: updated.name, avatarUrl: updated.avatarUrl }
-                : c,
-            ),
+        setConversations((prev) =>
+          prev.map((c) => (c._id === targetGroup ? { ...c, ...updated } : c)),
+        );
+        if (activeConversationId === targetGroup)
+          onSelectConversation?.((prev) =>
+            prev ? { ...prev, ...updated } : prev,
           );
-        }
         setShowEditGroupModal(false);
         return "Cập nhật nhóm thành công!";
       },
@@ -156,50 +165,20 @@ function ChatList({
   });
 
   useEffect(() => {
-    if (!activeConversationId) return;
-    setUnread((prev) => ({ ...prev, [activeConversationId]: 0 }));
-  }, [activeConversationId]);
-  useEffect(() => {
-    const handleReceive = (data) => {
+    const handleIncomingForBadge = (data) => {
       const convId =
+        data.groupId ||
         data.conversationId ||
         data.message?.conversationId?._id ||
         data.message?.conversationId;
-
-      console.log("=== RECEIVE_MESSAGE ===");
-      console.log("data:", data);
-      console.log("convId:", convId);
-
       if (!convId) return;
 
-      if (typeof setConversations === "function") {
-        setConversations((prev) => {
-          const idx = prev.findIndex((c) => c._id === convId);
-          if (idx === -1) return prev;
-
-          const updated = [...prev];
-          const oldConv = updated[idx];
-
-          const newConv = {
-            ...oldConv,
-            lastMessageId: data.message || oldConv.lastMessageId,
-            updatedAt: data.message?.createdAt || new Date().toISOString(),
-          };
-
-          updated.splice(idx, 1);
-          return [newConv, ...updated];
-        });
-      }
-
-      if (convId === activeConversationId) {
+      // Sử dụng REF ở đây để luôn trỏ tới activeConversation mới nhất mà ko cần đưa vào Dependency
+      if (convId === activeConvRef.current) {
         setUnread((prev) => ({ ...prev, [convId]: 0 }));
-        return;
+      } else {
+        setUnread((prev) => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }));
       }
-
-      setUnread((prev) => ({
-        ...prev,
-        [convId]: (prev[convId] || 0) + 1,
-      }));
     };
 
     const handleUserOnline = (userId) => {
@@ -207,7 +186,7 @@ function ChatList({
         setConversations((prev) =>
           prev.map((conv) => ({
             ...conv,
-            members: conv.members.map((m) =>
+            members: conv.members?.map((m) =>
               m.userId?._id === userId
                 ? { ...m, userId: { ...m.userId, isOnline: true } }
                 : m,
@@ -222,7 +201,7 @@ function ChatList({
         setConversations((prev) =>
           prev.map((conv) => ({
             ...conv,
-            members: conv.members.map((m) =>
+            members: conv.members?.map((m) =>
               m.userId?._id === userId
                 ? { ...m, userId: { ...m.userId, isOnline: false } }
                 : m,
@@ -232,16 +211,20 @@ function ChatList({
       }
     };
 
-    socket.on("receive_message", handleReceive);
+    socket.on("receive_message", handleIncomingForBadge);
+    socket.on("receive_group_message", handleIncomingForBadge);
+    socket.on("new_message", handleIncomingForBadge);
     socket.on("user_online", handleUserOnline);
     socket.on("user_offline", handleUserOffline);
 
     return () => {
-      socket.off("receive_message", handleReceive);
+      socket.off("receive_message", handleIncomingForBadge);
+      socket.off("receive_group_message", handleIncomingForBadge);
+      socket.off("new_message", handleIncomingForBadge);
       socket.off("user_online", handleUserOnline);
       socket.off("user_offline", handleUserOffline);
     };
-  }, [activeConversationId, setConversations]);
+  }, [setConversations]); // Đã dọn dẹp Dependency: Socket chỉ kết nối 1 lần DUY NHẤT, tuyệt đối không bị rớt tin nhắn
 
   const sortedConversations = useMemo(() => {
     return [...(conversations || [])]
@@ -252,7 +235,6 @@ function ChatList({
           c.type === "group"
             ? c.name
             : otherUser?.userId?.fullName || "Unknown";
-
         return (name || "")
           .toLowerCase()
           .includes((search || "").toLowerCase());
@@ -270,26 +252,35 @@ function ChatList({
 
   const handleConfirmAction = async () => {
     const conversationId = confirmModal.data;
-    const isDisband = confirmModal.type === "disband";
+    const { type } = confirmModal;
 
     try {
-      const apiCall = isDisband
-        ? conversationApi.disbandGroup(conversationId)
-        : conversationApi.deleteConversation(conversationId);
+      let apiCall;
+      let loadingMsg = "";
+      let successMsg = "";
+      if (type === "disband") {
+        apiCall = conversationApi.disbandGroup(conversationId);
+        loadingMsg = "Đang giải tán...";
+        successMsg = "Giải tán nhóm thành công";
+      } else if (type === "leave") {
+        apiCall = conversationApi.leaveGroup(conversationId);
+        loadingMsg = "Đang rời nhóm...";
+        successMsg = "Đã rời khỏi nhóm";
+      } else {
+        apiCall = conversationApi.deleteConversation(conversationId);
+        loadingMsg = "Đang xóa...";
+        successMsg = "Xóa cuộc hội thoại thành công";
+      }
 
       toast.promise(apiCall, {
-        loading: isDisband ? "Đang giải tán..." : "Đang xóa...",
+        loading: loadingMsg,
         success: () => {
-          if (typeof setConversations === "function") {
-            setConversations((prev) =>
-              prev.filter((c) => c._id !== conversationId),
-            );
-          }
+          setConversations((prev) =>
+            prev.filter((c) => c._id !== conversationId),
+          );
           if (activeConversationId === conversationId)
             onSelectConversation?.(null);
-          return isDisband
-            ? "Giải tán nhóm thành công"
-            : "Xóa cuộc hội thoại thành công";
+          return successMsg;
         },
         error: "Thao tác thất bại",
       });
@@ -305,7 +296,8 @@ function ChatList({
     const otherUser = members.find((m) => m?.userId?._id !== currentUserId);
     const user = otherUser?.userId;
     const isActive = activeConversationId === conv._id;
-    const isOwner = conv.ownerId === currentUserId;
+    const groupOwnerId = typeof conv.ownerId === "object" ? conv.ownerId?._id : conv.ownerId;
+    const isOwner = String(groupOwnerId) === String(currentUserId);
 
     return (
       <div
@@ -442,6 +434,21 @@ function ChatList({
                   >
                     <FiTrash2 size={16} /> Xóa hội thoại
                   </Dropdown.Item>
+                  {isGroup && !isOwner && (
+                    <Dropdown.Item
+                      className="text-danger rounded-2 d-flex align-items-center gap-2 py-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmModal({
+                          show: true,
+                          type: "leave",
+                          data: conv._id,
+                        });
+                      }}
+                    >
+                      <FiLogOut size={16} /> Rời nhóm
+                    </Dropdown.Item>
+                  )}
                   {isGroup && isOwner && (
                     <Dropdown.Item
                       className="text-danger rounded-2 d-flex align-items-center gap-2 py-2"
@@ -479,56 +486,16 @@ function ChatList({
         .dropdown-item:hover { background-color: #f8fafc; }
         .dropdown-item.text-danger:hover { background-color: #fff1f2; }
         .dropdown-item { transition: all 0.2s ease; font-size: 14px; font-weight: 500; }
-        
-        /* MODERN MODAL STYLES */
-        .modern-modal .modal-content {
-          border-radius: 24px;
-          border: none;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-        }
+        .modern-modal .modal-content { border-radius: 24px; border: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
         .modern-modal .modal-header { border-bottom: 1px solid #f1f5f9; padding: 1.5rem; }
         .modern-modal .modal-body { padding: 1.5rem; }
-        
-        .avatar-edit-container { 
-          position: relative; 
-          width: 110px; 
-          height: 110px; 
-          margin: 0 auto 25px; 
-          cursor: pointer;
-          border-radius: 50%;
-          padding: 3px;
-          background: linear-gradient(135deg, #6366f1, #3b82f6);
-        }
-        .avatar-edit-inner {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          background: #fff;
-          overflow: hidden;
-          position: relative;
-        }
-        .avatar-edit-overlay { 
-          position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-          background: rgba(0,0,0,0.4); border-radius: 50%; 
-          display: flex; align-items: center; justify-content: center; 
-          color: white; font-size: 24px; opacity: 0; transition: 0.3s; 
-        }
+        .avatar-edit-container { position: relative; width: 110px; height: 110px; margin: 0 auto 25px; cursor: pointer; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #6366f1, #3b82f6); }
+        .avatar-edit-inner { width: 100%; height: 100%; border-radius: 50%; background: #fff; overflow: hidden; position: relative; }
+        .avatar-edit-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; opacity: 0; transition: 0.3s; }
         .avatar-edit-container:hover .avatar-edit-overlay { opacity: 1; }
-        
-        .btn-modern-confirm {
-          background: linear-gradient(135deg, #6366f1, #4f46e5);
-          border: none; border-radius: 14px; padding: 12px; font-weight: 600;
-          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2); transition: 0.3s;
-        }
+        .btn-modern-confirm { background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; border-radius: 14px; padding: 12px; font-weight: 600; box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2); transition: 0.3s; }
         .btn-modern-confirm:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3); }
-        
-        .icon-box-modern {
-          width: 70px; height: 70px; border-radius: 50%; 
-          display: flex; align-items: center; justify-content: center; 
-          font-size: 32px; margin: 0 auto 20px;
-        }
+        .icon-box-modern { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px; }
       `}</style>
 
       <div className="d-flex align-items-center gap-2 mb-3">
@@ -589,12 +556,10 @@ function ChatList({
       >
         Tất cả cuộc trò chuyện
       </div>
-
       <div className="d-flex flex-column gap-2">
         {sortedConversations.map(renderItem)}
       </div>
 
-      {/* MODERN GROUP SETTINGS MODAL */}
       <Modal
         show={showEditGroupModal}
         onHide={() => setShowEditGroupModal(false)}
@@ -634,7 +599,6 @@ function ChatList({
             accept="image/*"
             onChange={onFileChange}
           />
-
           <Form.Group className="text-start mb-4">
             <Form.Label className="small fw-bold text-muted px-1">
               Tên nhóm hiển thị
@@ -651,7 +615,6 @@ function ChatList({
               }}
             />
           </Form.Group>
-
           <Button
             variant="primary"
             className="w-100 btn-modern-confirm"
@@ -662,7 +625,6 @@ function ChatList({
         </Modal.Body>
       </Modal>
 
-      {/* MODERN CONFIRM MODAL */}
       <Modal
         show={confirmModal.show}
         onHide={() => setConfirmModal({ ...confirmModal, show: false })}
@@ -675,21 +637,25 @@ function ChatList({
             className="icon-box-modern"
             style={{
               background:
-                confirmModal.type === "disband" ? "#fff1f2" : "#f8fafc",
-              color: confirmModal.type === "disband" ? "#e11d48" : "#64748b",
+                confirmModal.type === "delete" ? "#f8fafc" : "#fff1f2",
+              color: confirmModal.type === "delete" ? "#64748b" : "#e11d48",
             }}
           >
-            {confirmModal.type === "disband" ? <FiLogOut /> : <FiTrash2 />}
+            {confirmModal.type === "delete" ? <FiTrash2 /> : <FiLogOut />}
           </div>
           <h5 className="fw-bold mb-2" style={{ color: "#1e293b" }}>
             {confirmModal.type === "disband"
               ? "Giải tán nhóm?"
-              : "Xóa cuộc trò chuyện?"}
+              : confirmModal.type === "leave"
+                ? "Rời khỏi nhóm?"
+                : "Xóa cuộc trò chuyện?"}
           </h5>
           <p className="text-muted small mb-4 px-2">
             {confirmModal.type === "disband"
               ? "Hành động này sẽ xóa vĩnh viễn tất cả thành viên và tin nhắn của nhóm."
-              : "Bạn chắc chắn muốn xóa hội thoại này khỏi danh sách của mình?"}
+              : confirmModal.type === "leave"
+                ? "Bạn sẽ không nhận được tin nhắn từ nhóm này nữa."
+                : "Bạn chắc chắn muốn xóa hội thoại này khỏi danh sách của mình?"}
           </p>
           <div className="d-flex gap-2">
             <Button
@@ -700,11 +666,15 @@ function ChatList({
               Hủy
             </Button>
             <Button
-              variant={confirmModal.type === "disband" ? "danger" : "primary"}
+              variant={confirmModal.type === "delete" ? "primary" : "danger"}
               className="flex-grow-1 rounded-3 fw-600 shadow-sm"
               onClick={handleConfirmAction}
             >
-              {confirmModal.type === "disband" ? "Giải tán" : "Xác nhận"}
+              {confirmModal.type === "disband"
+                ? "Giải tán"
+                : confirmModal.type === "leave"
+                  ? "Rời nhóm"
+                  : "Xác nhận"}
             </Button>
           </div>
         </Modal.Body>
@@ -719,15 +689,13 @@ function ChatList({
         onUpdate={handleGroupUpdate}
         conversations={conversations}
       />
-
       {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
       {openGroupModal && (
         <CreateGroupModal
           onClose={() => setOpenGroupModal(false)}
-          onCreated={(newConv) => {
-            if (typeof setConversations === "function")
-              setConversations((prev) => [newConv, ...prev]);
-          }}
+          onCreated={(newConv) =>
+            setConversations((prev) => [newConv, ...prev])
+          }
         />
       )}
     </div>

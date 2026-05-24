@@ -17,6 +17,7 @@ function ChatMain({
   conversation,
   onNewMessage,
   onMessageRecalled,
+  onCloseConversation,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -405,10 +406,14 @@ function ChatMain({
 
     socket.emit("join_conversation", conversationId);
 
+    const getConvId = (msg) =>
+      msg?.conversationId?._id || msg?.conversationId;
+
     const handleReceivePrivate = (data) => {
       const msg = data.message;
       if (!msg || !msg._id) return;
-      if (msg.conversationId && msg.conversationId !== conversationId) return;
+      const convId = getConvId(msg);
+      if (convId && String(convId) !== String(conversationId)) return;
 
       setMessages((prev) =>
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
@@ -418,7 +423,8 @@ function ChatMain({
     const handleReceiveGroup = (data) => {
       const msg = data.message;
       if (!msg || !msg._id) return;
-      if (data.groupId !== conversationId) return;
+      const convId = data.groupId || getConvId(msg);
+      if (String(convId) !== String(conversationId)) return;
 
       setMessages((prev) =>
         prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
@@ -437,8 +443,19 @@ function ChatMain({
       );
     };
 
+    const handleNewMessage = (msg) => {
+      if (!msg || !msg._id) return;
+      const convId = getConvId(msg);
+      if (convId && String(convId) !== String(conversationId)) return;
+
+      setMessages((prev) =>
+        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
+      );
+    };
+
     socket.on("receive_message", handleReceivePrivate);
     socket.on("receive_group_message", handleReceiveGroup);
+    socket.on("new_message", handleNewMessage);
     socket.on("message_recalled", handleRecalled);
     socket.on("message_updated", handleMessageUpdated);
 
@@ -446,6 +463,7 @@ function ChatMain({
       socket.emit("leave_conversation", conversationId);
       socket.off("receive_message", handleReceivePrivate);
       socket.off("receive_group_message", handleReceiveGroup);
+      socket.off("new_message", handleNewMessage);
       socket.off("message_recalled", handleRecalled);
       socket.off("message_updated", handleMessageUpdated);
     };
@@ -524,6 +542,31 @@ function ChatMain({
       socket.off("message_reacted", handleMessageReacted);
     };
   }, [conversationId]);
+
+  // ======= group realtime (disbanded, removed) =======
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const handleGroupDisbanded = ({ conversationId: convId, message }) => {
+      if (String(convId) !== String(conversationId)) return;
+      toast.error(message || "Nhóm đã được giải tán");
+      onCloseConversation?.(convId);
+    };
+
+    const handleRemovedFromGroup = ({ conversationId: convId, message }) => {
+      if (String(convId) !== String(conversationId)) return;
+      toast.error(message || "Bạn đã bị mời ra khỏi nhóm");
+      onCloseConversation?.(convId);
+    };
+
+    socket.on("group_disbanded", handleGroupDisbanded);
+    socket.on("removed_from_group", handleRemovedFromGroup);
+
+    return () => {
+      socket.off("group_disbanded", handleGroupDisbanded);
+      socket.off("removed_from_group", handleRemovedFromGroup);
+    };
+  }, [conversationId, onCloseConversation]);
 
   const handleSend = async () => {
     if (!conversationId || (!input.trim() && files.length === 0)) return;
