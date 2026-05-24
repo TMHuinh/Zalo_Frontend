@@ -11,6 +11,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useEffect, useRef } from "react";
 import socket from "./socket/socket";
 import useNotificationStore from "./store/notificationStore";
+import toast from "react-hot-toast";
 
 function App() {
   const isFirstLoad = useRef(true); // 🔥 chặn badge chạy nhiều lần
@@ -34,7 +35,15 @@ function App() {
       const data = noti?.data || {};
 
       if (data.status === "pending") {
-        setNewRequest(true); // 🔴 realtime
+        setNewRequest(true); // 🔴 realtime - lời mời kết bạn
+      }
+
+      // Nhóm mới - toast thông báo
+      if (noti?.type === "group_invite" && noti?.content) {
+        toast(noti.content, {
+          icon: "👥",
+          duration: 4000,
+        });
       }
     };
 
