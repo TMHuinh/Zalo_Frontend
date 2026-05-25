@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import EditProfileModal from "./EditProfileModal";
+import userApi from "../api/userApi";
 
 function ProfileModal({
   user,
@@ -34,27 +35,12 @@ function ProfileModal({
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("accessToken");
-
-      const res = await axios.post(
-        "http://localhost:5000/api/user/upload-avatar",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      // Gọi qua userApi, mọi thứ (baseURL, token) đã được lo liệu
+      const res = await userApi.uploadAvatar(formData);
 
       const newAvatar = res.data.result.avatarUrl;
-
       setAvatar(newAvatar);
-
-      onUpdateInfo?.({
-        ...user,
-        avatarUrl: newAvatar,
-      });
-
+      onUpdateInfo?.({ ...user, avatarUrl: newAvatar });
       toast.success("Cập nhật avatar thành công");
     } catch (err) {
       toast.error("Upload thất bại");

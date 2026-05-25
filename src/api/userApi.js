@@ -17,7 +17,14 @@ const userApi = {
   updateUser: (id, data) => {
     return axiosClient.put(`/user/${id}`, data);
 
-  }
+  },
+  uploadAvatar: (formData) => {
+    return axiosClient.post("/user/upload-avatar", formData, {
+      headers: {
+        "Content-Type": undefined,
+      },
+    });
+  },
 };
 
 export default userApi;
