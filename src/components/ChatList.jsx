@@ -211,11 +211,26 @@ function ChatList({
       }
     };
 
+    // Xử lý khi có cuộc trò chuyện mới (vd: kết bạn thành công)
+    const handleNewConversation = (newConv) => {
+      if (typeof setConversations === "function") {
+        setConversations((prev) => {
+          // Kiểm tra xem cuộc trò chuyện đã có trong list chưa để tránh bị duplicate
+          const isExist = prev.some((c) => c._id === newConv._id);
+          if (isExist) return prev;
+
+          // Thêm cuộc trò chuyện mới lên đầu danh sách
+          return [newConv, ...prev];
+        });
+      }
+    };
+
     socket.on("receive_message", handleIncomingForBadge);
     socket.on("receive_group_message", handleIncomingForBadge);
     socket.on("new_message", handleIncomingForBadge);
     socket.on("user_online", handleUserOnline);
     socket.on("user_offline", handleUserOffline);
+    socket.on("new_conversation", handleNewConversation);
 
     return () => {
       socket.off("receive_message", handleIncomingForBadge);
@@ -223,8 +238,9 @@ function ChatList({
       socket.off("new_message", handleIncomingForBadge);
       socket.off("user_online", handleUserOnline);
       socket.off("user_offline", handleUserOffline);
+      socket.off("new_conversation", handleNewConversation);
     };
-  }, [setConversations]); // Đã dọn dẹp Dependency: Socket chỉ kết nối 1 lần DUY NHẤT, tuyệt đối không bị rớt tin nhắn
+  }, [setConversations]); // Đã dọn dẹp Dependency: Socket chỉ kết nối 1 lần DUY NHẤT
 
   const sortedConversations = useMemo(() => {
     return [...(conversations || [])]
