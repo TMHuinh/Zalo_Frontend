@@ -42,14 +42,16 @@ function MessageItem({
     : null;
   const isLastOfBlock = senderId !== nextSenderId;
 
+  const normalizedAttachments = msg.attachments || (msg.attachment ? [msg.attachment] : []);
+
   const isSticker = msg.type === "sticker";
 
   const isOnlyImage =
     !msg.isRecalled &&
     !isSticker &&
     !msg.content &&
-    msg.attachments?.length > 0 &&
-    msg.attachments.every((f) => f.type === "image");
+    normalizedAttachments.length > 0 &&
+    normalizedAttachments.every((f) => f.type === "image");
 
   const isMediaBubble = !msg.isRecalled && (isOnlyImage || isSticker);
 
@@ -201,7 +203,7 @@ function MessageItem({
                         }}
                       />
                     )}
-                    {msg.attachments?.map((file, i) => (
+                    {normalizedAttachments.map((file, i) => (
                       <div key={i} className="attachment-modern">
                         {file.type === "image" ? (
                           <img

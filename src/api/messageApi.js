@@ -31,5 +31,17 @@ const messageApi = {
     reactMessage: (data) => {
         return axiosClient.post("/message/reaction", data);
     },
+
+    searchMessages: (conversationId, keyword, page = 1) => {
+        return axiosClient.get(
+            `/message/${conversationId}/search?keyword=${encodeURIComponent(keyword)}&page=${page}`,
+        );
+    },
+
+    getConversationMedia: (conversationId, page = 1) => {
+        return axiosClient.get(
+            `/message/${conversationId}/media?page=${page}`,
+        );
+    },
 };
 export default messageApi;

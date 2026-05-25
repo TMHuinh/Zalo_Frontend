@@ -1,6 +1,6 @@
-import { HiUserGroup } from "react-icons/hi";
+import { HiUserGroup, HiSearch, HiPhotograph } from "react-icons/hi";
 
-function ChatHeader({ isGroup, conversation, chatPartner }) {
+function ChatHeader({ isGroup, conversation, chatPartner, onOpenSearch, onOpenMedia }) {
   return (
     <div className="chat-header-modern">
       <div className="header-content">
@@ -76,6 +76,15 @@ function ChatHeader({ isGroup, conversation, chatPartner }) {
                 ? "Đang hoạt động"
                 : "Offline"}
           </span>
+        </div>
+
+        <div className="header-actions">
+          <button className="header-action-btn" onClick={onOpenSearch} title="Tìm kiếm tin nhắn">
+            <HiSearch size={20} />
+          </button>
+          <button className="header-action-btn" onClick={onOpenMedia} title="Ảnh / Video">
+            <HiPhotograph size={20} />
+          </button>
         </div>
       </div>
     </div>

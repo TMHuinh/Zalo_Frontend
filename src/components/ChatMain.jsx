@@ -11,6 +11,8 @@ import MessageList from "./MessageList";
 import ChatFooter from "./ChatFooter";
 import ForwardModal from "./ForwardModal";
 import ConfirmModal from "./ConfirmModal";
+import SearchModal from "./SearchModal";
+import MediaGallery from "./MediaGallery";
 
 function ChatMain({
   currentUserId,
@@ -51,12 +53,21 @@ function ChatMain({
     msg: null,
   });
 
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const bottomRef = useRef(null);
+  const isLoadingMoreRef = useRef(false); // Dùng để khóa gọi API liên tục
+  const prevLastMessageIdRef = useRef(null);
   const conversationId = conversation?._id;
   const isGroup =
     conversation?.type === "group" || conversation?.members?.length > 2;
 
   const isAnyMenuOpen = menuMessageId !== null || pinnedMenuId !== null;
+
   // ==== xử lý sticker===========================
   const handleSendSticker = async (stickerUrl) => {
     if (!conversationId) return;
@@ -71,42 +82,33 @@ function ChatMain({
     try {
       const res = await messageApi.sendMessage(payload);
       const saved = res.data.result;
-
-      // update UI
       setMessages((prev) => [...prev, saved]);
 
-      const isGroup =
-        conversation?.type === "group" || conversation?.members?.length > 2;
-
+      const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
       if (isGroup) {
-        // ✅ CHAT NHÓM
         socket.emit("send_group_message", {
           groupId: conversationId,
           userId: currentUserId,
           message: saved,
         });
       } else {
-        // ✅ CHAT ĐƠN
         const recipient = conversation.members.find(
           (m) => m.userId?._id !== currentUserId,
         )?.userId?._id;
 
         if (!recipient) return;
-
         socket.emit("send_message", {
           userId: currentUserId,
-          toUserId: recipient, // 🔥 chỉ 1 user
+          toUserId: recipient, 
           message: saved,
         });
       }
-
       onNewMessage?.({ conversationId, message: saved });
     } catch (err) {
       toast.error("Không thể gửi sticker");
     }
   };
 
-  // ===== QUẢN LÝ NGƯỜI CHAT VÀ TRẠNG THÁI ONLINE =====
   useEffect(() => {
     const getPartnerInfo = async () => {
       if (!isGroup && conversation?.members) {
@@ -118,10 +120,8 @@ function ChatMain({
             const res = await userApi.getById(partnerId);
             setChatPartner(res.data.result || res.data);
           } catch (err) {
-            console.error("Lỗi khi lấy thông tin user:", err);
             setChatPartner(
-              conversation.members.find((m) => m.userId?._id !== currentUserId)
-                ?.userId,
+              conversation.members.find((m) => m.userId?._id !== currentUserId)?.userId,
             );
           }
         }
@@ -134,13 +134,9 @@ function ChatMain({
 
   useEffect(() => {
     const handleOnline = (userId) =>
-      setChatPartner((prev) =>
-        prev && prev._id === userId ? { ...prev, isOnline: true } : prev,
-      );
+      setChatPartner((prev) => prev && prev._id === userId ? { ...prev, isOnline: true } : prev);
     const handleOffline = (userId) =>
-      setChatPartner((prev) =>
-        prev && prev._id === userId ? { ...prev, isOnline: false } : prev,
-      );
+      setChatPartner((prev) => prev && prev._id === userId ? { ...prev, isOnline: false } : prev);
 
     socket.on("user_online", handleOnline);
     socket.on("user_offline", handleOffline);
@@ -150,18 +146,13 @@ function ChatMain({
     };
   }, []);
 
-  // ===== TỐI ƯU HÓA DANH SÁCH CHUYỂN TIẾP =====
   const forwardList = useMemo(() => {
     const keyword = searchTerm.toLowerCase();
     return allConversations
       .map((c) => {
-        const otherUser = c.members.find(
-          (m) => m.userId?._id !== currentUserId,
-        )?.userId;
+        const otherUser = c.members.find((m) => m.userId?._id !== currentUserId)?.userId;
         const isGroupChat = c.type === "group" || c.members.length > 2;
-        const name = isGroupChat
-          ? c.name || "Nhóm chat"
-          : otherUser?.fullName || "Unknown";
+        const name = isGroupChat ? c.name || "Nhóm chat" : otherUser?.fullName || "Unknown";
         return { ...c, isGroupChat, otherUser, name };
       })
       .filter((c) => c.name.toLowerCase().includes(keyword));
@@ -170,108 +161,125 @@ function ChatMain({
   const getUserColor = (userId) => {
     if (!userId) return "#0084ff";
     const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33A1",
-      "#33FFF6",
-      "#FF8333",
-      "#8D33FF",
-      "#33FF8A",
-      "#FF3333",
-      "#00A8FF",
-      "#9C27B0",
-      "#4CAF50",
-      "#E91E63",
-      "#FF9800",
-      "#009688",
-      "#673AB7",
-      "#FFC107",
-      "#795548",
-      "#607D8B",
+      "#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33A1",
+      "#33FFF6", "#FF8333", "#8D33FF", "#33FF8A", "#FF3333",
+      "#00A8FF", "#9C27B0", "#4CAF50", "#E91E63", "#FF9800",
+      "#009688", "#673AB7", "#FFC107", "#795548", "#607D8B",
     ];
     let hash = 5381;
-    for (let i = 0; i < userId.length; i++)
-      hash = (hash * 33) ^ userId.charCodeAt(i);
+    for (let i = 0; i < userId.length; i++) hash = (hash * 33) ^ userId.charCodeAt(i);
     return colors[Math.abs(hash % colors.length)];
   };
 
   const getSender = (msg) => {
-    const senderId =
-      typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
-    return conversation?.members.find((m) => m.userId?._id === senderId)
-      ?.userId;
+    const senderId = typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+    return conversation?.members.find((m) => m.userId?._id === senderId)?.userId;
   };
 
   const getReplyPreviewText = (msg) => {
     if (!msg) return "";
-
     if (msg.isRecalled) return "Tin nhắn đã được thu hồi";
     if (msg.type === "sticker") return "[Sticker]";
-    if (msg.attachments?.length > 0 && !msg.content) {
-      if (msg.attachments.every((f) => f.type === "image")) return "[Hình ảnh]";
+    const atts = msg.attachments || (msg.attachment ? [msg.attachment] : []);
+    if (atts.length > 0 && !msg.content) {
+      if (atts.every((f) => f.type === "image")) return "[Hình ảnh]";
       return "[Tệp đính kèm]";
     }
-
     return msg.content || "";
   };
+
   const scrollToMessage = (messageId) => {
-    if (!messageId) return;
-
-    const el = messageRefs.current[messageId];
+    const id = typeof messageId === "object" ? messageId?._id : messageId;
+    if (!id) return;
+    const el = messageRefs.current[id];
     if (!el) return;
-
-    el.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-
-    setHighlightedMessageId(messageId);
-
-    setTimeout(() => {
-      setHighlightedMessageId((prev) => (prev === messageId ? null : prev));
-    }, 1800);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(id);
+    setTimeout(() => setHighlightedMessageId((prev) => (prev === id ? null : prev)), 3000);
   };
+
+  const jumpToSearchResult = async (msg) => {
+    const messageId = msg?._id;
+    if (!messageId) return;
+    const el = messageRefs.current[messageId];
+    if (el) {
+      scrollToMessage(messageId);
+      return;
+    }
+    let allMsgs = [...messages];
+    let nextPage = page + 1;
+    let found = false;
+    while (!found) {
+      try {
+        const res = await messageApi.getMessages(conversationId, nextPage);
+        const pageMsgs = res.data.result.data || [];
+        if (pageMsgs.length === 0) break;
+        const reversed = pageMsgs.reverse();
+        allMsgs = [...reversed, ...allMsgs];
+        found = reversed.some((m) => m._id === messageId);
+        nextPage++;
+      } catch {
+        break;
+      }
+    }
+    if (found) {
+      setMessages(allMsgs);
+      setPage(nextPage - 1);
+      setTimeout(() => {
+        const el = messageRefs.current[messageId];
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          setHighlightedMessageId(messageId);
+          setTimeout(() => setHighlightedMessageId((prev) => (prev === messageId ? null : prev)), 3000);
+        }
+      }, 150);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!conversationId || isLoadingMoreRef.current || !hasMore) return;
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const res = await messageApi.getMessages(conversationId, nextPage);
+      const data = res.data.result.data || [];
+      const newMsgs = data.reverse();
+      if (newMsgs.length === 0) {
+        setHasMore(false);
+      } else {
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m._id));
+          const unique = newMsgs.filter((m) => !existingIds.has(m._id));
+          return [...unique, ...prev];
+        });
+        setPage(nextPage);
+        setHasMore(newMsgs.length >= 20);
+      }
+    } catch {
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  };
+
   const handlePinMessage = async (msg) => {
     try {
-      await conversationApi.pinMessage({
-        conversationId,
-        messageId: msg._id,
-      });
-
+      await conversationApi.pinMessage({ conversationId, messageId: msg._id });
       const pinnedRes = await conversationApi.getPinnedMessages(conversationId);
       const newPinned = pinnedRes.data.result || [];
       setPinnedMessages(newPinned);
-
       const pinnedItem = newPinned.find((item) => {
         const pinnedMsg = item?.messageId || item;
         return String(pinnedMsg?._id) === String(msg._id);
       });
-
-      const updatedMessage = pinnedItem?.messageId ||
-        pinnedItem || {
-          ...msg,
-          isPinned: true,
-          conversationId,
-        };
-
+      const updatedMessage = pinnedItem?.messageId || pinnedItem || { ...msg, isPinned: true, conversationId };
       setMessages((prev) =>
-        prev.map((m) =>
-          String(m._id) === String(msg._id)
-            ? { ...m, ...updatedMessage, isPinned: true }
-            : m,
-        ),
+        prev.map((m) => String(m._id) === String(msg._id) ? { ...m, ...updatedMessage, isPinned: true } : m),
       );
-
-      const isGroup =
-        conversation?.type === "group" || conversation?.members?.length > 2;
-
-      const recipient = !isGroup
-        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
-            ?.userId?._id
-        : null;
-
+      const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
+      const recipient = !isGroup ? conversation?.members?.find((m) => m.userId._id !== currentUserId)?.userId?._id : null;
       socket.emit("pin_message", {
         type: isGroup ? "group" : "direct",
         groupId: isGroup ? conversationId : null,
@@ -279,49 +287,25 @@ function ChatMain({
         userId: currentUserId,
         message: updatedMessage,
       });
-
       toast.success("Đã ghim tin nhắn");
     } catch (error) {
-      console.error(error);
       toast.error("Ghim tin nhắn thất bại");
     }
   };
 
   const handleUnpinMessage = async (msg) => {
     try {
-      await conversationApi.unpinMessage({
-        conversationId,
-        messageId: msg._id,
-      });
-
+      await conversationApi.unpinMessage({ conversationId, messageId: msg._id });
       const pinnedRes = await conversationApi.getPinnedMessages(conversationId);
       const newPinned = pinnedRes.data.result || [];
       setPinnedMessages(newPinned);
-
-      const updatedMessage = {
-        ...msg,
-        isPinned: false,
-        conversationId,
-      };
-
+      const updatedMessage = { ...msg, isPinned: false, conversationId };
       setMessages((prev) =>
-        prev.map((m) =>
-          String(m._id) === String(msg._id) ? { ...m, isPinned: false } : m,
-        ),
+        prev.map((m) => String(m._id) === String(msg._id) ? { ...m, isPinned: false } : m),
       );
-
-      if (newPinned.length <= 1) {
-        setShowAllPinned(false);
-      }
-
-      const isGroup =
-        conversation?.type === "group" || conversation?.members?.length > 2;
-
-      const recipient = !isGroup
-        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
-            ?.userId?._id
-        : null;
-
+      if (newPinned.length <= 1) setShowAllPinned(false);
+      const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
+      const recipient = !isGroup ? conversation?.members?.find((m) => m.userId._id !== currentUserId)?.userId?._id : null;
       socket.emit("unpin_message", {
         type: isGroup ? "group" : "direct",
         groupId: isGroup ? conversationId : null,
@@ -329,10 +313,8 @@ function ChatMain({
         userId: currentUserId,
         message: updatedMessage,
       });
-
       toast.success("Đã bỏ ghim");
     } catch (error) {
-      console.error(error);
       toast.error("Bỏ ghim thất bại");
     }
   };
@@ -343,60 +325,77 @@ function ChatMain({
       return pinnedId === messageId;
     });
   };
-  // ===== bỏ ghim trên thanh ghim=======
+
   const handleUnpinFromBar = async (pinnedMsg) => {
     const msg = pinnedMsg?.messageId || pinnedMsg;
     if (!msg?._id) return;
-
     await handleUnpinMessage(msg);
     setPinnedMenuId(null);
   };
-  // ========================================================================================================================
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
-  // ==========================================================================================================================
+  // ========================================================================================================================
+  // 1. Reset logic khi chuyển người chat
+  useEffect(() => {
+    prevLastMessageIdRef.current = null;
+  }, [conversationId]);
+
+  // 2. FIX CUỘN CHUẨN ZALO: Bám sát đáy kể cả khi có hình ảnh đang load
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    
+    // Nếu tin nhắn cuối thay đổi -> Kích hoạt cuộn
+    if (lastMessage && lastMessage._id !== prevLastMessageIdRef.current) {
+      const isInitialLoad = prevLastMessageIdRef.current === null;
+      prevLastMessageIdRef.current = lastMessage._id;
+
+      const performScroll = () => {
+        bottomRef.current?.scrollIntoView({ 
+          behavior: isInitialLoad ? "auto" : "smooth",
+          block: "end"
+        });
+      };
+
+      // Thực hiện cuộn 3 nhịp: 
+      // Nhịp 1: Cuộn ngay lập tức cho text
+      performScroll();
+      // Nhịp 2 & 3: Đề phòng hình ảnh có dung lượng lớn load xong làm phình chiều cao
+      setTimeout(performScroll, 100); 
+      setTimeout(performScroll, 300); 
+    }
+  }, [messages]);
+  // ========================================================================================================================
+
   useEffect(() => {
     const handleClickOutside = (e) => {
-      const clickedInsideMessageMenu =
-        messageMenuRef.current && messageMenuRef.current.contains(e.target);
-
-      const clickedInsidePinnedMenu =
-        pinnedMenuRef.current && pinnedMenuRef.current.contains(e.target);
-
-      const clickedInsidePinnedDropdown =
-        pinnedDropdownRef.current &&
-        pinnedDropdownRef.current.contains(e.target);
-
-      if (!clickedInsideMessageMenu) {
-        setMenuMessageId(null);
-      }
-
-      if (!clickedInsidePinnedMenu) {
-        setPinnedMenuId(null);
-      }
-
-      if (!clickedInsidePinnedDropdown) {
-        setShowAllPinned(false);
-      }
+      const clickedInsideMessageMenu = messageMenuRef.current && messageMenuRef.current.contains(e.target);
+      const clickedInsidePinnedMenu = pinnedMenuRef.current && pinnedMenuRef.current.contains(e.target);
+      const clickedInsidePinnedDropdown = pinnedDropdownRef.current && pinnedDropdownRef.current.contains(e.target);
+      if (!clickedInsideMessageMenu) setMenuMessageId(null);
+      if (!clickedInsidePinnedMenu) setPinnedMenuId(null);
+      if (!clickedInsidePinnedDropdown) setShowAllPinned(false);
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  // ================================================================================================
+
   useEffect(() => {
     if (!conversationId) return;
 
     setShowAllPinned(false);
     setPinnedMenuId(null);
+    setPage(1);
+    setHasMore(true);
+    setMessages([]); // Xóa màn hình ngay lập tức khi đổi chat để chống chớp giật
 
     messageApi
-      .getMessages(conversationId)
-      .then((res) => setMessages(res.data.result.data.reverse()))
+      .getMessages(conversationId, 1)
+      .then((res) => {
+        const data = res.data.result.data || [];
+        setMessages(data.reverse());
+        setHasMore(data.length >= 20);
+      })
       .catch(console.error);
 
     conversationApi
@@ -406,51 +405,34 @@ function ChatMain({
 
     socket.emit("join_conversation", conversationId);
 
-    const getConvId = (msg) =>
-      msg?.conversationId?._id || msg?.conversationId;
+    const getConvId = (msg) => msg?.conversationId?._id || msg?.conversationId;
 
     const handleReceivePrivate = (data) => {
       const msg = data.message;
       if (!msg || !msg._id) return;
-      const convId = getConvId(msg);
-      if (convId && String(convId) !== String(conversationId)) return;
-
-      setMessages((prev) =>
-        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
-      );
+      if (getConvId(msg) && String(getConvId(msg)) !== String(conversationId)) return;
+      setMessages((prev) => prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]);
     };
 
     const handleReceiveGroup = (data) => {
       const msg = data.message;
       if (!msg || !msg._id) return;
-      const convId = data.groupId || getConvId(msg);
-      if (String(convId) !== String(conversationId)) return;
-
-      setMessages((prev) =>
-        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
-      );
+      if (String(data.groupId || getConvId(msg)) !== String(conversationId)) return;
+      setMessages((prev) => prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]);
     };
 
     const handleRecalled = ({ messageId }) =>
-      setMessages((prev) =>
-        prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)),
-      );
+      setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, isRecalled: true } : m)));
+      
     const handleMessageUpdated = (updatedMessage) => {
       if (!updatedMessage?._id) return;
-
-      setMessages((prev) =>
-        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
-      );
+      setMessages((prev) => prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)));
     };
 
     const handleNewMessage = (msg) => {
       if (!msg || !msg._id) return;
-      const convId = getConvId(msg);
-      if (convId && String(convId) !== String(conversationId)) return;
-
-      setMessages((prev) =>
-        prev.some((m) => m._id === msg._id) ? prev : [...prev, msg],
-      );
+      if (getConvId(msg) && String(getConvId(msg)) !== String(conversationId)) return;
+      setMessages((prev) => prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]);
     };
 
     socket.on("receive_message", handleReceivePrivate);
@@ -469,99 +451,64 @@ function ChatMain({
     };
   }, [conversationId]);
 
-  // ================ nhận socket pin, unpin============
   useEffect(() => {
     const handlePinned = async ({ message }) => {
       if (!message?._id) return;
-
       const convId = message?.conversationId?._id || message?.conversationId;
-
       if (String(convId) !== String(conversationId)) return;
-
       setMessages((prev) =>
-        prev.map((m) =>
-          String(m._id) === String(message._id)
-            ? { ...m, ...message, isPinned: true }
-            : m,
-        ),
+        prev.map((m) => String(m._id) === String(message._id) ? { ...m, ...message, isPinned: true } : m),
       );
-
       const res = await conversationApi.getPinnedMessages(convId);
       setPinnedMessages(res.data.result || []);
     };
 
     const handleUnpinned = async ({ message }) => {
       if (!message?._id) return;
-
       const convId = message?.conversationId?._id || message?.conversationId;
-
       if (String(convId) !== String(conversationId)) return;
-
       setMessages((prev) =>
-        prev.map((m) =>
-          String(m._id) === String(message._id) ? { ...m, isPinned: false } : m,
-        ),
+        prev.map((m) => String(m._id) === String(message._id) ? { ...m, isPinned: false } : m),
       );
-
       const res = await conversationApi.getPinnedMessages(convId);
       const newPinned = res.data.result || [];
       setPinnedMessages(newPinned);
-
-      if (newPinned.length <= 1) {
-        setShowAllPinned(false);
-      }
+      if (newPinned.length <= 1) setShowAllPinned(false);
     };
 
     socket.on("message_pinned", handlePinned);
     socket.on("message_unpinned", handleUnpinned);
-
     return () => {
       socket.off("message_pinned", handlePinned);
       socket.off("message_unpinned", handleUnpinned);
     };
   }, [conversationId]);
 
-  // ======= nhận socket reacalll=========================
   useEffect(() => {
     const handleMessageReacted = ({ conversationId: convId, message }) => {
       if (!message) return;
-
-      const msgConvId =
-        convId || message?.conversationId?._id || message?.conversationId;
-
+      const msgConvId = convId || message?.conversationId?._id || message?.conversationId;
       if (msgConvId !== conversationId) return;
-
-      setMessages((prev) =>
-        prev.map((m) => (m._id === message._id ? message : m)),
-      );
+      setMessages((prev) => prev.map((m) => (m._id === message._id ? message : m)));
     };
-
     socket.on("message_reacted", handleMessageReacted);
-
-    return () => {
-      socket.off("message_reacted", handleMessageReacted);
-    };
+    return () => socket.off("message_reacted", handleMessageReacted);
   }, [conversationId]);
 
-  // ======= group realtime (disbanded, removed) =======
   useEffect(() => {
     if (!conversationId) return;
-
     const handleGroupDisbanded = ({ conversationId: convId, message }) => {
       if (String(convId) !== String(conversationId)) return;
       toast.error(message || "Nhóm đã được giải tán");
       onCloseConversation?.(convId);
     };
-
     const handleRemovedFromGroup = ({ conversationId: convId, message }) => {
       if (String(convId) !== String(conversationId)) return;
       toast.error(message || "Bạn đã bị mời ra khỏi nhóm");
       onCloseConversation?.(convId);
     };
-
     socket.on("group_disbanded", handleGroupDisbanded);
     socket.on("removed_from_group", handleRemovedFromGroup);
-
     return () => {
       socket.off("group_disbanded", handleGroupDisbanded);
       socket.off("removed_from_group", handleRemovedFromGroup);
@@ -570,90 +517,49 @@ function ChatMain({
 
   const handleSend = async () => {
     if (!conversationId || (!input.trim() && files.length === 0)) return;
-
     const formData = new FormData();
     formData.append("conversationId", conversationId);
     formData.append("content", input);
     formData.append("senderId", currentUserId);
-
-    if (replyingMessage?._id) {
-      formData.append("replyToMessageId", replyingMessage._id);
-    }
-
+    if (replyingMessage?._id) formData.append("replyToMessageId", replyingMessage._id);
     files.forEach((file) => formData.append("files", file));
 
     try {
       if (conversation?.type === "bot") {
-        const payload = {
-          conversationId,
-          content: input,
-        };
-
+        const payload = { conversationId, content: input };
         const res = await messageApi.sendChatbotMessage(payload);
         const { userMessage, botMessage } = res.data.result;
-
         setMessages((prev) => [...prev, userMessage, botMessage]);
         onNewMessage?.({ conversationId, message: botMessage });
       } else {
         const res = await messageApi.sendMessage(formData);
         const saved = res.data.result;
-
         setMessages((prev) => [...prev, saved]);
-
-        const isGroup =
-          conversation?.type === "group" || conversation?.members?.length > 2;
-
+        const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
         if (isGroup) {
-          socket.emit("send_group_message", {
-            groupId: conversationId,
-            userId: currentUserId,
-            message: saved,
-          });
+          socket.emit("send_group_message", { groupId: conversationId, userId: currentUserId, message: saved });
         } else {
-          const recipient = conversation.members.find(
-            (m) => m.userId._id !== currentUserId,
-          )?.userId._id;
-
-          socket.emit("send_message", {
-            userId: currentUserId,
-            toUserId: recipient,
-            message: saved,
-          });
+          const recipient = conversation.members.find((m) => m.userId._id !== currentUserId)?.userId._id;
+          socket.emit("send_message", { userId: currentUserId, toUserId: recipient, message: saved });
         }
-
         onNewMessage?.({ conversationId, message: saved });
       }
-
       setInput("");
       setFiles([]);
       setPreview([]);
       setReplyingMessage(null);
     } catch (err) {
-      console.error(err);
       toast.error("Gửi tin nhắn thất bại");
     }
   };
+
   const handleReactMessage = async (msg, emoji) => {
     try {
-      const res = await messageApi.reactMessage({
-        messageId: msg._id,
-        emoji,
-      });
-
+      const res = await messageApi.reactMessage({ messageId: msg._id, emoji });
       const updatedMessage = res.data.result;
-
-      setMessages((prev) =>
-        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)),
-      );
-
-      const isGroup =
-        conversation?.type === "group" || conversation?.members?.length > 2;
-
-      const recipient = !isGroup
-        ? conversation?.members?.find((m) => m.userId._id !== currentUserId)
-            ?.userId?._id
-        : null;
-
+      setMessages((prev) => prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m)));
+      const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
+      const recipient = !isGroup ? conversation?.members?.find((m) => m.userId._id !== currentUserId)?.userId?._id : null;
       socket.emit("react_message", {
         type: isGroup ? "group" : "direct",
         groupId: isGroup ? conversationId : null,
@@ -661,10 +567,8 @@ function ChatMain({
         userId: currentUserId,
         message: updatedMessage,
       });
-
       setReactionPickerMessageId(null);
     } catch (error) {
-      console.error(error);
       toast.error("Thả cảm xúc thất bại");
     }
   };
@@ -675,41 +579,15 @@ function ChatMain({
       if (type === "revoke") {
         const res = await messageApi.revokeMessage(msg._id);
         const updatedMsg = res.data.result || res.data;
-
-        setMessages((prev) =>
-          prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)),
-        );
-
-        onMessageRecalled?.({
-          conversationId,
-          messageId: msg._id,
-        });
-
-        const isGroupChat =
-          conversation?.type === "group" || conversation?.members?.length > 2;
-
+        setMessages((prev) => prev.map((m) => (m._id === updatedMsg._id ? updatedMsg : m)));
+        onMessageRecalled?.({ conversationId, messageId: msg._id });
+        const isGroupChat = conversation?.type === "group" || conversation?.members?.length > 2;
         if (isGroupChat) {
-          socket.emit("recall_message", {
-            type: "group",
-            groupId: conversationId,
-            conversationId,
-            messageId: msg._id,
-          });
+          socket.emit("recall_message", { type: "group", groupId: conversationId, conversationId, messageId: msg._id });
         } else {
-          const recipient = conversation.members.find(
-            (m) => m.userId?._id !== currentUserId,
-          )?.userId?._id;
-
-          if (recipient) {
-            socket.emit("recall_message", {
-              type: "direct",
-              toUserId: recipient,
-              conversationId,
-              messageId: msg._id,
-            });
-          }
+          const recipient = conversation.members.find((m) => m.userId?._id !== currentUserId)?.userId?._id;
+          if (recipient) socket.emit("recall_message", { type: "direct", toUserId: recipient, conversationId, messageId: msg._id });
         }
-
         toast.success("Đã thu hồi tin nhắn");
       } else if (type === "delete") {
         await messageApi.deleteMessage(msg._id);
@@ -724,41 +602,25 @@ function ChatMain({
   };
 
   const handleActionClick = async (msg, type) => {
-    if (type === "reply") {
-      setReplyingMessage(msg);
-    } else if (type === "pin") {
-      if (isPinnedMessage(msg._id)) {
-        await handleUnpinMessage(msg);
-      } else {
-        await handlePinMessage(msg);
-      }
+    if (type === "reply") setReplyingMessage(msg);
+    else if (type === "pin") {
+      if (isPinnedMessage(msg._id)) await handleUnpinMessage(msg);
+      else await handlePinMessage(msg);
     } else if (type === "forward") {
       setForwardContent(msg);
       setForwardModal(true);
-      conversationApi
-        .getByUserId()
-        .then((res) =>
-          setAllConversations(res.data.result || res.data.data || []),
-        );
+      conversationApi.getByUserId().then((res) => setAllConversations(res.data.result || res.data.data || []));
     } else {
       setConfirmModal({ show: true, type, msg });
     }
-
     setMenuMessageId(null);
   };
 
   const handleSendForward = async (targetConvId) => {
     if (!forwardContent) return;
-
-    const targetConversation = allConversations.find(
-      (c) => String(c._id) === String(targetConvId),
-    );
-
-    if (!targetConversation) {
-      toast.error("Không tìm thấy cuộc trò chuyện");
-      return;
-    }
-
+    const targetConversation = allConversations.find((c) => String(c._id) === String(targetConvId));
+    if (!targetConversation) return toast.error("Không tìm thấy cuộc trò chuyện");
+    
     const forwardPayload = {
       conversationId: targetConvId,
       senderId: currentUserId,
@@ -771,89 +633,53 @@ function ChatMain({
     try {
       const res = await messageApi.sendMessage(forwardPayload);
       const saved = res.data.result;
-
-      const isTargetGroup =
-        targetConversation?.type === "group" ||
-        targetConversation?.members?.length > 2;
-
+      const isTargetGroup = targetConversation?.type === "group" || targetConversation?.members?.length > 2;
+      
       if (isTargetGroup) {
-        socket.emit("send_group_message", {
-          groupId: targetConvId,
-          userId: currentUserId,
-          message: saved,
-        });
+        socket.emit("send_group_message", { groupId: targetConvId, userId: currentUserId, message: saved });
       } else {
-        const recipient = targetConversation.members.find(
-          (m) => m.userId?._id !== currentUserId,
-        )?.userId?._id;
-
-        if (recipient) {
-          socket.emit("send_message", {
-            userId: currentUserId,
-            toUserId: recipient,
-            message: saved,
-          });
-        }
+        const recipient = targetConversation.members.find((m) => m.userId?._id !== currentUserId)?.userId?._id;
+        if (recipient) socket.emit("send_message", { userId: currentUserId, toUserId: recipient, message: saved });
       }
-
       onNewMessage?.({ conversationId: targetConvId, message: saved });
-
       setForwardModal(false);
       setForwardContent(null);
       toast.success("Chuyển tiếp thành công!");
     } catch (err) {
-      console.error(err);
       toast.error("Lỗi khi chuyển tiếp");
     }
   };
 
   const updateActionSide = (messageId, bubbleEl) => {
     if (!bubbleEl) return;
-
     const rect = bubbleEl.getBoundingClientRect();
-    const actionWidth = 170; // 4 nút tròn + khoảng cách
+    const actionWidth = 170;
     const gap = 12;
-
     const spaceLeft = rect.left;
     const spaceRight = window.innerWidth - rect.right;
-
     let side = "right-side";
-
-    // nếu bên phải không đủ chỗ thì chuyển action sang bên trái bubble
-    if (spaceRight < actionWidth + gap && spaceLeft > spaceRight) {
-      side = "left-side";
-    }
-
-    // nếu bên trái cũng không đủ mà bên phải đủ hơn thì ép sang phải
-    if (spaceLeft < actionWidth + gap && spaceRight >= spaceLeft) {
-      side = "right-side";
-    }
-
-    setActionSideMap((prev) => {
-      if (prev[messageId] === side) return prev;
-      return { ...prev, [messageId]: side };
-    });
+    if (spaceRight < actionWidth + gap && spaceLeft > spaceRight) side = "left-side";
+    if (spaceLeft < actionWidth + gap && spaceRight >= spaceLeft) side = "right-side";
+    setActionSideMap((prev) => prev[messageId] === side ? prev : { ...prev, [messageId]: side });
   };
+
   const getVerticalPosition = (el) => {
     if (!el) return "bottom";
-
     const rect = el.getBoundingClientRect();
     const spaceTop = rect.top;
     const spaceBottom = window.innerHeight - rect.bottom;
-
-    // nếu dưới không đủ chỗ → mở lên trên
-    if (spaceBottom < 120 && spaceTop > spaceBottom) {
-      return "top";
-    }
-
+    if (spaceBottom < 120 && spaceTop > spaceBottom) return "top";
     return "bottom";
   };
+
   return (
     <div className="modern-chat-container">
       <ChatHeader
         isGroup={isGroup}
         conversation={conversation}
         chatPartner={chatPartner}
+        onOpenSearch={() => setShowSearchModal(true)}
+        onOpenMedia={() => setShowMediaGallery(true)}
       />
 
       <PinnedBar
@@ -897,6 +723,9 @@ function ChatMain({
         reactionEmojis={reactionEmojis}
         isAnyMenuOpen={isAnyMenuOpen}
         bottomRef={bottomRef}
+        loadMore={loadMore}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
       />
 
       <ChatFooter
@@ -929,6 +758,20 @@ function ChatMain({
         type={confirmModal.type}
         onHide={() => setConfirmModal({ show: false, type: "", msg: null })}
         onConfirm={executeAction}
+      />
+
+      <SearchModal
+        show={showSearchModal}
+        onHide={() => setShowSearchModal(false)}
+        conversationId={conversationId}
+        onJumpToMessage={jumpToSearchResult}
+        conversation={conversation}
+      />
+
+      <MediaGallery
+        show={showMediaGallery}
+        onHide={() => setShowMediaGallery(false)}
+        conversationId={conversationId}
       />
     </div>
   );
