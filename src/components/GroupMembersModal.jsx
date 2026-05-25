@@ -6,13 +6,33 @@ import {
 } from "react-icons/fi";
 import conversationApi from "../api/conversationApi";
 import friendshipApi from "../api/friendshipApi";
+import socket from "../socket/socket";
 import toast from "react-hot-toast";
+
+// Cache persist dùng localStorage — sống qua F5
+const STORAGE_SENT_KEY = 'zalo_sent_friend_ids';
+function _loadSentIds() {
+  try { const r = localStorage.getItem(STORAGE_SENT_KEY); return r ? new Set(JSON.parse(r)) : new Set(); }
+  catch { return new Set(); }
+}
+function _saveSentIds(ids) {
+  try { localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify([...ids])); }
+  catch { /* quota exceeded, silent fail */ }
+}
+
+const _sentRequestIds = _loadSentIds();
 
 function GroupMembersModal({ show, onHide, members, conversationId, currentUserId, onUpdate }) {
   // States cho tính năng Thêm thành viên
   const [isAdding, setIsAdding] = useState(false);
   const [friends, setFriends] = useState([]);
   const [selectedUserIds, setSelectedUserIds] = useState([]);
+
+  // States cho trạng thái quan hệ bạn bè (Local-First State Sync)
+  const [friendIdSet, setFriendIdSet] = useState(new Set());
+  const [pendingSentMap, setPendingSentMap] = useState({});   // { memberId: true } — tôi đã gửi LM
+  const [pendingReceivedMap, setPendingReceivedMap] = useState({}); // { memberId: friendshipId } — tôi nhận LM
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // States cho tính năng Rời nhóm (Chuyển quyền)
   const [isTransferring, setIsTransferring] = useState(false);
@@ -45,6 +65,70 @@ function GroupMembersModal({ show, onHide, members, conversationId, currentUserI
     if (isAdding) fetchFriends();
   }, [isAdding, members]);
 
+  // === LOCAL-FIRST STATE SYNC: Khởi tạo dữ liệu ===
+  useEffect(() => {
+    if (!show) return;
+
+    const initData = async () => {
+      setDataLoaded(false);
+      setFriendIdSet(new Set());
+      setPendingSentMap({});
+      setPendingReceivedMap({});
+
+      try {
+        const [friendsRes, pendingRes] = await Promise.all([
+          friendshipApi.getFriends(),
+          friendshipApi.getPending(),
+        ]);
+
+        // 1. Xử lý danh sách bạn bè
+        const friendsData = friendsRes.data?.data;
+        const fIds = new Set();
+        if (friendsData) {
+          const flat = Array.isArray(friendsData) ? friendsData : Object.values(friendsData).flat();
+          flat.forEach(f => fIds.add(String(f._id || f.id)));
+        }
+        setFriendIdSet(fIds);
+
+        // Dọn cache: xóa những ID đã thành bạn bè
+        fIds.forEach(fid => _sentRequestIds.delete(fid));
+        _saveSentIds(_sentRequestIds);
+
+        // 2. Xử lý danh sách lời mời đang chờ
+        const pendingData = pendingRes.data?.data || [];
+        const sentMap = {};
+        const receivedMap = {};
+
+        pendingData.forEach(req => {
+          const requesterId = String(req.requesterId?._id || req.requesterId || '');
+          const addresseeId = String(req.addresseeId?._id || req.addresseeId || '');
+
+          if (requesterId === String(currentUserId) && addresseeId) {
+            sentMap[addresseeId] = true;
+          }
+          if (addresseeId === String(currentUserId) && requesterId) {
+            receivedMap[requesterId] = req._id; // lưu friendshipId để dùng cho accept
+          }
+        });
+
+        // 3. Merge dữ liệu API với module cache
+        // (API getPending() thường chỉ trả về lời mời đến, không trả về lời mời đi)
+        Array.from(_sentRequestIds).forEach(mid => {
+          if (!sentMap[mid] && !fIds.has(mid)) sentMap[mid] = true;
+        });
+
+        setPendingSentMap(sentMap);
+        setPendingReceivedMap(receivedMap);
+      } catch (err) {
+        console.log("Init data error:", err);
+      } finally {
+        setDataLoaded(true);
+      }
+    };
+
+    initData();
+  }, [show, currentUserId]);
+
   // Lọc bạn bè (khi thêm)
   const filteredFriends = useMemo(() => {
     return friends.filter((f) => f.fullName?.toLowerCase().includes(search.toLowerCase()));
@@ -57,6 +141,24 @@ function GroupMembersModal({ show, onHide, members, conversationId, currentUserI
       m.fullName?.toLowerCase().includes(search.toLowerCase())
     );
   }, [members, currentUserId, search]);
+
+  // Map trạng thái quan hệ bạn bè cho từng thành viên
+  const memberStatuses = useMemo(() => {
+    const map = {};
+    members.forEach(m => {
+      const mid = String(m.id);
+      if (friendIdSet.has(mid)) {
+        map[mid] = { relationship: 'accepted' };
+      } else if (pendingSentMap[mid]) {
+        map[mid] = { relationship: 'pending' };
+      } else if (pendingReceivedMap[mid]) {
+        map[mid] = { relationship: 'received' };
+      } else {
+        map[mid] = { relationship: 'none' };
+      }
+    });
+    return map;
+  }, [members, friendIdSet, pendingSentMap, pendingReceivedMap]);
 
   const toggleUser = (userId) => {
     setSelectedUserIds((prev) =>
@@ -175,6 +277,134 @@ function GroupMembersModal({ show, onHide, members, conversationId, currentUserI
     } catch (error) {
       toast.error("Có lỗi xảy ra, vui lòng thử lại", { id: "leave-transfer" });
     }
+  };
+
+  // === LOCAL-FIRST STATE SYNC: Xử lý sự kiện ===
+  const handleSendFriendRequest = async (memberId) => {
+    const key = String(memberId);
+    // Ghi vào cả React state (optimistic) và module cache (xuyên suốt)
+    setPendingSentMap(prev => ({ ...prev, [key]: true }));
+    _sentRequestIds.add(key);
+    _saveSentIds(_sentRequestIds);
+    try {
+      await friendshipApi.sendRequest(memberId);
+      toast.success("Đã gửi lời mời kết bạn");
+    } catch (error) {
+      // Rollback nếu API fail
+      setPendingSentMap(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      _sentRequestIds.delete(key);
+      _saveSentIds(_sentRequestIds);
+      toast.error("Gửi lời mời thất bại");
+    }
+  };
+
+  const handleAcceptFriendRequest = async (memberId) => {
+    const key = String(memberId);
+    const friendshipId = pendingReceivedMap[key];
+    if (!friendshipId) return;
+
+    // Optimistic update: chuyển thành bạn bè ngay
+    setFriendIdSet(prev => new Set([...Array.from(prev), key]));
+    setPendingReceivedMap(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+    try {
+      await friendshipApi.acceptRequest(friendshipId);
+      toast.success("Đã chấp nhận lời mời");
+    } catch (error) {
+      // Rollback
+      setFriendIdSet(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      setPendingReceivedMap(prev => ({ ...prev, [key]: friendshipId }));
+      toast.error("Chấp nhận thất bại");
+    }
+  };
+
+  // === REALTIME UPDATE: lắng nghe sự kiện từ socket ===
+  useEffect(() => {
+    if (!show) return;
+
+    const handleNotification = (noti) => {
+      const data = noti?.data || {};
+      if (!data.status) return;
+
+      const requesterId = String(data.requesterId?._id || data.requesterId || '');
+      const addresseeId = String(data.addresseeId?._id || data.addresseeId || '');
+
+      if (data.status === 'accepted') {
+        // Ai đó đã chấp nhận lời mời → chuyển thành bạn
+        const acceptedId = requesterId === String(currentUserId) ? addresseeId : requesterId;
+        if (acceptedId) {
+          setFriendIdSet(prev => new Set([...Array.from(prev), acceptedId]));
+          setPendingSentMap(prev => { const n = { ...prev }; delete n[acceptedId]; return n; });
+          setPendingReceivedMap(prev => { const n = { ...prev }; delete n[acceptedId]; return n; });
+          _sentRequestIds.delete(acceptedId);
+          _saveSentIds(_sentRequestIds);
+        }
+      }
+
+      if (data.status === 'rejected') {
+        // Lời mời bị từ chối → xóa khỏi pending
+        const rejectedId = requesterId === String(currentUserId) ? addresseeId : requesterId;
+        if (rejectedId) {
+          setPendingSentMap(prev => { const n = { ...prev }; delete n[rejectedId]; return n; });
+          _sentRequestIds.delete(rejectedId);
+          _saveSentIds(_sentRequestIds);
+        }
+      }
+
+      if (data.status === 'pending') {
+        // Có lời mời mới gửi đến tôi → thêm vào received
+        if (requesterId && requesterId !== String(currentUserId)) {
+          setPendingReceivedMap(prev => ({ ...prev, [requesterId]: data.friendshipId || true }));
+        }
+      }
+    };
+
+    socket.on('notification:new', handleNotification);
+    return () => socket.off('notification:new', handleNotification);
+  }, [show, currentUserId]);
+
+  // Helper render nút Kết bạn / Đồng ý / Đã gửi LM
+  const renderFriendButton = (member) => {
+    if (member.id === currentUserId || !dataLoaded) return null;
+
+    const rel = memberStatuses[String(member.id)]?.relationship;
+    if (rel === 'accepted') return null;
+
+    if (rel === 'pending') {
+      return (
+        <Button size="sm" className="rounded-pill me-2" variant="secondary" disabled>
+          Đã gửi LM
+        </Button>
+      );
+    }
+
+    if (rel === 'received') {
+      return (
+        <Button size="sm" className="rounded-pill me-2" variant="success"
+          onClick={(e) => { e.stopPropagation(); handleAcceptFriendRequest(member.id); }}>
+          <FiUserPlus size={14} className="me-1" />Đồng ý
+        </Button>
+      );
+    }
+
+    return (
+      <Button size="sm" className="rounded-pill me-2" variant="outline-primary"
+        onClick={(e) => { e.stopPropagation(); handleSendFriendRequest(member.id); }}>
+        <FiUserPlus size={14} className="me-1" />Kết bạn
+      </Button>
+    );
   };
 
   // --- HÀM RENDER AVATAR DÙNG CHUNG ---
@@ -319,6 +549,8 @@ function GroupMembersModal({ show, onHide, members, conversationId, currentUserI
                     {member.role === 'owner' ? <Badge className="badge-owner">Trưởng nhóm</Badge> : <span className="text-muted" style={{ fontSize: '12px' }}>Thành viên</span>}
                   </div>
                 </div>
+
+                {renderFriendButton(member)}
 
                 {isOwner && member.id !== currentUserId && (
                   <Dropdown onClick={(e) => e.stopPropagation()}>
