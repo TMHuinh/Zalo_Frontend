@@ -11,10 +11,11 @@ import { toast } from "react-toastify";
 
 import friendshipApi from "../api/friendshipApi";
 import userApi from "../api/userApi";
+import conversationApi from "../api/conversationApi";
 import socket from "../socket/socket";
 import EditProfileModal from "./EditProfileModal";
 
-function AddFriendModal({ onClose, currentUserId, onUserUpdated }) {
+function AddFriendModal({ onClose, currentUserId, onUserUpdated, onSelectConversation }) {
   const [phone, setPhone] = useState("");
   const [debouncedPhone, setDebouncedPhone] = useState("");
   const [result, setResult] = useState(null);
@@ -42,6 +43,19 @@ function AddFriendModal({ onClose, currentUserId, onUserUpdated }) {
       setResult(null);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleMessage = async (friendId) => {
+    try {
+      const res = await conversationApi.getOrCreateDirect(friendId);
+      const conversation = res.data?.result || res.data?.data;
+      if (conversation) {
+        onSelectConversation?.(conversation);
+        onClose?.();
+      }
+    } catch (err) {
+      toast.error("Không thể mở cuộc trò chuyện");
     }
   };
 
@@ -178,7 +192,7 @@ function AddFriendModal({ onClose, currentUserId, onUserUpdated }) {
                       <FiEdit2 /> Chỉnh sửa
                     </button>
                   ) : relationship === "accepted" ? (
-                    <button>
+                    <button onClick={() => handleMessage(foundUser._id)}>
                       <FiMessageCircle /> Nhắn tin
                     </button>
                   ) : relationship === "pending" ? (

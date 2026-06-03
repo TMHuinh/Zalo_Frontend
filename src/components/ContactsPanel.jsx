@@ -8,7 +8,7 @@ import { HiUserGroup } from "react-icons/hi";
 import toast from "react-hot-toast";
 import "../css/contactsPanel.css";
 
-function ContactsPanel({ contactView, setContactView, onSearch }) {
+function ContactsPanel({ contactView, setContactView, onSearch, onSelectConversation }) {
   const [search, setSearch] = useState("");
   const [openModal, setOpenModal] = useState(false);
   const [openGroupModal, setOpenGroupModal] = useState(false);
@@ -159,7 +159,12 @@ function ContactsPanel({ contactView, setContactView, onSearch }) {
       </div>
 
       {/* MODAL */}
-      {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
+      {openModal && (
+        <AddFriendModal
+          onClose={() => setOpenModal(false)}
+          onSelectConversation={onSelectConversation}
+        />
+      )}
 
       {openGroupModal && (
         <CreateGroupModal

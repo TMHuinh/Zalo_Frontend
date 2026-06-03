@@ -705,7 +705,16 @@ function ChatList({
         onUpdate={handleGroupUpdate}
         conversations={conversations}
       />
-      {openModal && <AddFriendModal onClose={() => setOpenModal(false)} />}
+      {openModal && (
+        <AddFriendModal
+          onClose={() => setOpenModal(false)}
+          currentUserId={currentUserId}
+          onSelectConversation={(conv) => {
+            setOpenModal(false);
+            onSelectConversation?.(conv);
+          }}
+        />
+      )}
       {openGroupModal && (
         <CreateGroupModal
           onClose={() => setOpenGroupModal(false)}

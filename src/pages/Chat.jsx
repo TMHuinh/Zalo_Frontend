@@ -209,7 +209,15 @@ function Chat() {
             activeConversationId={activeConversation?._id}
           />
         ) : (
-          <ContactsPanel contactView={contactView} setContactView={setContactView} onSearch={setSearch} />
+          <ContactsPanel
+            contactView={contactView}
+            setContactView={setContactView}
+            onSearch={setSearch}
+            onSelectConversation={(conv) => {
+              setActiveConversation(conv);
+              setTab("chat");
+            }}
+          />
         )}
       </div>
 
