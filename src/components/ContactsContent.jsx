@@ -144,28 +144,12 @@ function ContactsContent({ view, search = "", onSelectConversation }) {
     return () => socket.off("new_conversation", fetchFriends);
   }, [fetchFriends]);
 
-  // ===== FIX LỖI NHẢY VÀO GROUP =====
   const handleMessage = async (friendId) => {
     try {
-      const res = await conversationApi.getByUserId();
-      const conversations = res.data.result || res.data.data || [];
-
-      const found = conversations.find((c) => {
-        // 1. Kiểm tra xem có phải là nhóm không. Nếu là nhóm -> Bỏ qua
-        const isGroup = c.type === "group" || c.members?.length > 2;
-        if (isGroup) return false;
-
-        // 2. Nếu là chat 1-1, kiểm tra xem có chứa friendId này không
-        return c.members?.some(
-          (m) => m.userId?._id === friendId || m.userId === friendId,
-        );
-      });
-
-      if (found) {
-        onSelectConversation?.(found);
-      } else {
-        // Tuỳ chọn: Nếu không tìm thấy cuộc trò chuyện 1-1, bạn có thể gọi API tạo cuộc trò chuyện mới tại đây
-        console.log("Chưa có cuộc trò chuyện 1-1 với user này.");
+      const res = await conversationApi.getOrCreateDirect(friendId);
+      const conversation = res.data?.result || res.data?.data;
+      if (conversation) {
+        onSelectConversation?.(conversation);
       }
     } catch (err) {
       console.log(err);

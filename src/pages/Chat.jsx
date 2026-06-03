@@ -72,31 +72,39 @@ function Chat() {
     setConversations((prev) => prev.filter((c) => c._id !== conversationId));
   }, []);
 
-  // 1. TỐI ƯU GIAO DIỆN (OPTIMISTIC UI): Xử lý tin nhắn do chính bạn gửi đi
-  const handleLocalNewMessage = useCallback(({ conversationId, message }) => {
-    setConversations((prev) => {
-      const idx = prev.findIndex((c) => c._id === conversationId);
-      if (idx === -1) return prev;
-      
-      const updated = [...prev];
-      // Nếu đã cập nhật rồi thì bỏ qua để chống giật UI
-      if (updated[idx].lastMessageId?._id === message._id) return prev;
+  const handleLocalNewMessage = useCallback(
+    ({ conversationId, message, conversation }) => {
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c._id === conversationId);
+        if (idx === -1) {
+          if (!conversation) return prev;
+          socket.emit("join_conversation", conversationId);
+          return [
+            { ...conversation, lastMessageId: message },
+            ...prev,
+          ];
+        }
 
-      updated[idx] = {
-        ...updated[idx],
-        lastMessageId: message,
-        updatedAt: message.createdAt || new Date().toISOString(),
-      };
-      const [moved] = updated.splice(idx, 1);
-      return [moved, ...updated];
-    });
+        const updated = [...prev];
+        if (updated[idx].lastMessageId?._id === message._id) return prev;
 
-    setActiveConversation((prev) =>
-      prev?._id === conversationId
-        ? { ...prev, lastMessageId: message, updatedAt: message.createdAt || new Date().toISOString() }
-        : prev
-    );
-  }, []);
+        updated[idx] = {
+          ...updated[idx],
+          lastMessageId: message,
+          updatedAt: message.createdAt || new Date().toISOString(),
+        };
+        const [moved] = updated.splice(idx, 1);
+        return [moved, ...updated];
+      });
+
+      setActiveConversation((prev) =>
+        prev?._id === conversationId
+          ? { ...prev, lastMessageId: message, updatedAt: message.createdAt || new Date().toISOString() }
+          : prev,
+      );
+    },
+    [],
+  );
 
   const handleLocalMessageRecalled = useCallback(({ conversationId, messageId }) => {
     const updateLastMsg = (prevMsg) => ({ ...prevMsg, isRecalled: true, content: "", attachments: [], type: "text" });
