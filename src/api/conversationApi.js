@@ -5,6 +5,10 @@ const conversationApi = {
     return axiosClient.get("/conversation/getByUserId");
   },
 
+  getOrCreateDirect: (targetUserId) => {
+    return axiosClient.post("/conversation/direct", { targetUserId });
+  },
+
   createGroup: (data) => {
     return axiosClient.post("/conversation/group", data);
   },

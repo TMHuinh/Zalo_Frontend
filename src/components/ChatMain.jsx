@@ -82,28 +82,10 @@ function ChatMain({
     try {
       const res = await messageApi.sendMessage(payload);
       const saved = res.data.result;
-      setMessages((prev) => [...prev, saved]);
-
-      const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
-      if (isGroup) {
-        socket.emit("send_group_message", {
-          groupId: conversationId,
-          userId: currentUserId,
-          message: saved,
-        });
-      } else {
-        const recipient = conversation.members.find(
-          (m) => m.userId?._id !== currentUserId,
-        )?.userId?._id;
-
-        if (!recipient) return;
-        socket.emit("send_message", {
-          userId: currentUserId,
-          toUserId: recipient, 
-          message: saved,
-        });
-      }
-      onNewMessage?.({ conversationId, message: saved });
+      setMessages((prev) =>
+        prev.some((m) => m._id === saved._id) ? prev : [...prev, saved],
+      );
+      onNewMessage?.({ conversationId, message: saved, conversation });
     } catch (err) {
       toast.error("Không thể gửi sticker");
     }
@@ -529,20 +511,24 @@ function ChatMain({
         const payload = { conversationId, content: input };
         const res = await messageApi.sendChatbotMessage(payload);
         const { userMessage, botMessage } = res.data.result;
-        setMessages((prev) => [...prev, userMessage, botMessage]);
-        onNewMessage?.({ conversationId, message: botMessage });
+        setMessages((prev) => {
+          let next = prev;
+          if (userMessage && !next.some((m) => m._id === userMessage._id)) {
+            next = [...next, userMessage];
+          }
+          if (botMessage && !next.some((m) => m._id === botMessage._id)) {
+            next = [...next, botMessage];
+          }
+          return next;
+        });
+        onNewMessage?.({ conversationId, message: botMessage, conversation });
       } else {
         const res = await messageApi.sendMessage(formData);
         const saved = res.data.result;
-        setMessages((prev) => [...prev, saved]);
-        const isGroup = conversation?.type === "group" || conversation?.members?.length > 2;
-        if (isGroup) {
-          socket.emit("send_group_message", { groupId: conversationId, userId: currentUserId, message: saved });
-        } else {
-          const recipient = conversation.members.find((m) => m.userId._id !== currentUserId)?.userId._id;
-          socket.emit("send_message", { userId: currentUserId, toUserId: recipient, message: saved });
-        }
-        onNewMessage?.({ conversationId, message: saved });
+        setMessages((prev) =>
+          prev.some((m) => m._id === saved._id) ? prev : [...prev, saved],
+        );
+        onNewMessage?.({ conversationId, message: saved, conversation });
       }
       setInput("");
       setFiles([]);
@@ -633,15 +619,11 @@ function ChatMain({
     try {
       const res = await messageApi.sendMessage(forwardPayload);
       const saved = res.data.result;
-      const isTargetGroup = targetConversation?.type === "group" || targetConversation?.members?.length > 2;
-      
-      if (isTargetGroup) {
-        socket.emit("send_group_message", { groupId: targetConvId, userId: currentUserId, message: saved });
-      } else {
-        const recipient = targetConversation.members.find((m) => m.userId?._id !== currentUserId)?.userId?._id;
-        if (recipient) socket.emit("send_message", { userId: currentUserId, toUserId: recipient, message: saved });
-      }
-      onNewMessage?.({ conversationId: targetConvId, message: saved });
+      onNewMessage?.({
+        conversationId: targetConvId,
+        message: saved,
+        conversation: targetConversation,
+      });
       setForwardModal(false);
       setForwardContent(null);
       toast.success("Chuyển tiếp thành công!");
