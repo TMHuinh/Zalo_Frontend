@@ -158,12 +158,21 @@ function ChatMain({
     return conversation?.members.find((m) => m.userId?._id === senderId)?.userId;
   };
 
+  const isAudioAttachment = (file) =>
+    file?.type === "audio" ||
+    file?.type === "voice" ||
+    file?.mimeType?.startsWith("audio/") ||
+    file?.mimetype?.startsWith("audio/") ||
+    file?.fileName?.match(/\.(webm|mp3|m4a|wav|ogg)$/i);
+
   const getReplyPreviewText = (msg) => {
     if (!msg) return "";
     if (msg.isRecalled) return "Tin nhắn đã được thu hồi";
     if (msg.type === "sticker") return "[Sticker]";
+    if (msg.type === "voice" || msg.type === "audio") return "[Tin nhan thoai]";
     const atts = msg.attachments || (msg.attachment ? [msg.attachment] : []);
     if (atts.length > 0 && !msg.content) {
+      if (atts.every(isAudioAttachment)) return "[Tin nhan thoai]";
       if (atts.every((f) => f.type === "image")) return "[Hình ảnh]";
       return "[Tệp đính kèm]";
     }
@@ -539,6 +548,33 @@ function ChatMain({
     }
   };
 
+  const handleSendVoice = async (voiceFile) => {
+    if (!conversationId || !voiceFile) return;
+    if (conversation?.type === "bot") {
+      toast.error("Chatbot chua ho tro tin nhan thoai");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("conversationId", conversationId);
+    formData.append("content", "");
+    formData.append("senderId", currentUserId);
+    if (replyingMessage?._id) formData.append("replyToMessageId", replyingMessage._id);
+    formData.append("files", voiceFile);
+
+    try {
+      const res = await messageApi.sendMessage(formData);
+      const saved = res.data.result;
+      setMessages((prev) =>
+        prev.some((m) => m._id === saved._id) ? prev : [...prev, saved],
+      );
+      onNewMessage?.({ conversationId, message: saved, conversation });
+      setReplyingMessage(null);
+    } catch (err) {
+      toast.error("Gui tin nhan thoai that bai");
+    }
+  };
+
   const handleReactMessage = async (msg, emoji) => {
     try {
       const res = await messageApi.reactMessage({ messageId: msg._id, emoji });
@@ -720,6 +756,7 @@ function ChatMain({
         replyingMessage={replyingMessage}
         setReplyingMessage={setReplyingMessage}
         handleSend={handleSend}
+        handleSendVoice={handleSendVoice}
         handleSendSticker={handleSendSticker}
         getSender={getSender}
         currentUserId={currentUserId}

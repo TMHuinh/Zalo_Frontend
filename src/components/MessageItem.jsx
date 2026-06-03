@@ -45,6 +45,12 @@ function MessageItem({
   const normalizedAttachments = msg.attachments || (msg.attachment ? [msg.attachment] : []);
 
   const isSticker = msg.type === "sticker";
+  const isAudioAttachment = (file) =>
+    file?.type === "audio" ||
+    file?.type === "voice" ||
+    file?.mimeType?.startsWith("audio/") ||
+    file?.mimetype?.startsWith("audio/") ||
+    file?.fileName?.match(/\.(webm|mp3|m4a|wav|ogg)$/i);
 
   const isOnlyImage =
     !msg.isRecalled &&
@@ -217,6 +223,10 @@ function MessageItem({
                             }
                             onClick={() => window.open(file.url)}
                           />
+                        ) : isAudioAttachment(file) ? (
+                          <div className="voice-message-modern">
+                            <audio controls src={file.url} preload="metadata" />
+                          </div>
                         ) : (
                           <div
                             className="file-card-modern"

@@ -1,5 +1,7 @@
 import StickerPicker from "./StickerPicker";
-import { FiPlusCircle, FiImage, FiSend } from "react-icons/fi";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { FiPlusCircle, FiMic, FiSend, FiStopCircle } from "react-icons/fi";
 
 function ChatFooter({
   input,
@@ -11,11 +13,106 @@ function ChatFooter({
   replyingMessage,
   setReplyingMessage,
   handleSend,
+  handleSendVoice,
   handleSendSticker,
   getSender,
   currentUserId,
   getReplyPreviewText,
 }) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const audioStreamRef = useRef(null);
+  const discardRecordingRef = useRef(false);
+
+  const stopTracks = () => {
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    audioStreamRef.current = null;
+  };
+
+  const startVoiceRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      toast.error("Trinh duyet khong ho tro ghi am");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
+
+      audioStreamRef.current = stream;
+      audioChunksRef.current = [];
+      discardRecordingRef.current = false;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const chunks = audioChunksRef.current;
+        stopTracks();
+        setIsRecording(false);
+
+        if (discardRecordingRef.current) {
+          audioChunksRef.current = [];
+          mediaRecorderRef.current = null;
+          discardRecordingRef.current = false;
+          return;
+        }
+
+        if (chunks.length === 0) {
+          toast.error("Khong ghi duoc am thanh");
+          return;
+        }
+
+        const blob = new Blob(chunks, { type: mimeType });
+        const file = new File([blob], `voice-message-${Date.now()}.webm`, {
+          type: mimeType,
+        });
+
+        try {
+          setIsSendingVoice(true);
+          await handleSendVoice(file);
+        } finally {
+          setIsSendingVoice(false);
+          audioChunksRef.current = [];
+          mediaRecorderRef.current = null;
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      stopTracks();
+      setIsRecording(false);
+      toast.error("Khong the truy cap micro");
+    }
+  };
+
+  const toggleVoiceRecording = () => {
+    if (isSendingVoice) return;
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+    startVoiceRecording();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current?.state === "recording") {
+        discardRecordingRef.current = true;
+        mediaRecorderRef.current.stop();
+      }
+      stopTracks();
+    };
+  }, []);
+
   return (
     <div className="chat-footer-modern">
       {preview.length > 0 && (
@@ -88,10 +185,13 @@ function ChatFooter({
             <FiPlusCircle />
           </button>
           <button
-            className="btn-action-refined"
-            onClick={() => document.getElementById("f-upload-modern").click()}
+            type="button"
+            className={`btn-action-refined voice-btn ${isRecording ? "recording" : ""}`}
+            onClick={toggleVoiceRecording}
+            disabled={isSendingVoice}
+            title={isRecording ? "Dung ghi am" : "Ghi am"}
           >
-            <FiImage />
+            {isRecording ? <FiStopCircle /> : <FiMic />}
           </button>
         </div>
         <div
