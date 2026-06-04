@@ -19,6 +19,9 @@ const messageApi = {
     sendChatbotMessage: (data) => {
         return axiosClient.post("/message/chatbot", data);
     },
+    summarizeConversation: (messages) => {
+        return axiosClient.post("/message/conversation/summary", messages);
+    },
     revokeMessage: (messageId) =>
         axiosClient.delete("/message/revoke", {
             data: { messageId },
