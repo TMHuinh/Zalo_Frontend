@@ -46,7 +46,7 @@ function ChatHeader({
     : isBot
       ? "AI"
       : chatPartner?.isOnline
-        ? "Dang hoat dong"
+        ? "Đang hoạt động"
         : "Offline";
 
   return (
