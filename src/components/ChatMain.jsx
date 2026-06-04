@@ -900,7 +900,7 @@ function ChatMain({
       setReactionPickerMessageId(null);
     } catch (error) {
       toast.error("Thả cảm xúc thất bại");
-    }
+    } 
   };
 
   const executeAction = async () => {

@@ -1,7 +1,18 @@
 import StickerPicker from "./StickerPicker";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiMic, FiPlusCircle, FiSend, FiStopCircle } from "react-icons/fi";
+import {
+  FiArchive,
+  FiFile,
+  FiFileText,
+  FiImage,
+  FiMic,
+  FiMusic,
+  FiPlusCircle,
+  FiSend,
+  FiStopCircle,
+  FiX,
+} from "react-icons/fi";
 
 function ChatFooter({
   input,
@@ -25,6 +36,54 @@ function ChatFooter({
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
   const discardRecordingRef = useRef(false);
+  const fileInputRef = useRef(null);
+  const previewRef = useRef([]);
+
+  const getFileName = (file) => file?.name || file?.fileName || "Tep dinh kem";
+
+  const getFileExtension = (file) => {
+    const name = getFileName(file);
+    const ext = name.includes(".") ? name.split(".").pop() : "";
+    return ext ? ext.toUpperCase() : "FILE";
+  };
+
+  const formatFileSize = (size) => {
+    const value = Number(size);
+    if (!Number.isFinite(value) || value <= 0) return "";
+    const units = ["B", "KB", "MB", "GB"];
+    let result = value;
+    let unitIndex = 0;
+
+    while (result >= 1024 && unitIndex < units.length - 1) {
+      result /= 1024;
+      unitIndex += 1;
+    }
+
+    return `${result >= 10 || unitIndex === 0 ? result.toFixed(0) : result.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  const isImageFile = (file) => file?.type?.startsWith("image/");
+  const isAudioFile = (file) => file?.type?.startsWith("audio/");
+
+  const getPreviewIcon = (file) => {
+    const ext = getFileExtension(file).toLowerCase();
+    if (isImageFile(file)) return <FiImage />;
+    if (isAudioFile(file)) return <FiMusic />;
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return <FiArchive />;
+    if (
+      ["txt", "doc", "docx", "pdf", "xls", "xlsx", "ppt", "pptx"].includes(ext)
+    ) {
+      return <FiFileText />;
+    }
+    return <FiFile />;
+  };
+
+  const removePreviewAt = (index) => {
+    const removed = preview[index];
+    if (removed?.url) URL.revokeObjectURL(removed.url);
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreview((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const stopTracks = () => {
     audioStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -113,9 +172,61 @@ function ChatFooter({
     };
   }, []);
 
+  useEffect(() => {
+    previewRef.current = preview;
+  }, [preview]);
+
+  useEffect(() => {
+    return () => {
+      previewRef.current.forEach((item) => {
+        if (item?.url) URL.revokeObjectURL(item.url);
+      });
+    };
+  }, []);
+
   return (
     <div className="chat-footer-modern">
       {preview.length > 0 && (
+        <div className="preview-bar-modern">
+          <div className="preview-bar-header">
+            <span>File đính kèm</span>
+            <strong>{preview.length}</strong>
+          </div>
+          <div className="preview-file-list">
+            {preview.map((item, i) => (
+              <div key={`${item.name}-${i}`} className="preview-file-card">
+                {item.isImage ? (
+                  <img
+                    className="preview-file-thumb"
+                    src={item.url}
+                    alt={item.name}
+                  />
+                ) : (
+                  <div className="preview-file-icon">{getPreviewIcon(item)}</div>
+                )}
+
+                <div className="preview-file-info">
+                  <span className="preview-file-name">{item.name}</span>
+                  <span className="preview-file-meta">
+                    {getFileExtension(item)}
+                    {item.size ? ` • ${formatFileSize(item.size)}` : ""}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className="preview-file-remove"
+                  title="Bỏ file"
+                  onClick={() => removePreviewAt(i)}
+                >
+                  <FiX />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {false && preview.length > 0 && (
         <div className="preview-bar-modern">
           {preview.map((p, i) => (
             <div key={i} className="preview-thumb">
@@ -169,19 +280,33 @@ function ChatFooter({
       <div className="input-wrapper-refined">
         <div className="action-buttons-left">
           <input
+            ref={fileInputRef}
             type="file"
             id="f-upload-modern"
             hidden
             multiple
             onChange={(e) => {
               const selected = Array.from(e.target.files);
+              if (selected.length === 0) return;
+              previewRef.current.forEach((item) => {
+                if (item?.url) URL.revokeObjectURL(item.url);
+              });
               setFiles(selected);
-              setPreview(selected.map((f) => URL.createObjectURL(f)));
+              setPreview(
+                selected.map((file) => ({
+                  url: URL.createObjectURL(file),
+                  name: getFileName(file),
+                  size: file.size,
+                  type: file.type,
+                  isImage: isImageFile(file),
+                })),
+              );
+              e.target.value = "";
             }}
           />
           <button
             className="btn-action-refined pulse"
-            onClick={() => document.getElementById("f-upload-modern").click()}
+            onClick={() => fileInputRef.current?.click()}
           >
             <FiPlusCircle />
           </button>
