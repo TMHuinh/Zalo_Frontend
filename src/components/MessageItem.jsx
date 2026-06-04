@@ -1,4 +1,13 @@
-import { FiDownload, FiCornerUpLeft, FiShare2, FiMoreHorizontal } from "react-icons/fi";
+import {
+  FiArchive,
+  FiCornerUpLeft,
+  FiDownload,
+  FiExternalLink,
+  FiFile,
+  FiFileText,
+  FiMoreHorizontal,
+  FiShare2,
+} from "react-icons/fi";
 
 function MessageItem({
   msg,
@@ -30,16 +39,14 @@ function MessageItem({
 }) {
   if (msg.isDeleted) return null;
 
-  const senderId =
-    typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+  const getEntityId = (value) =>
+    value && typeof value === "object" ? value._id : value;
+
+  const senderId = getEntityId(msg.senderId);
   const isMe = senderId === currentUserId;
   const sender = getSender(msg);
   const nextMsg = messages[index + 1];
-  const nextSenderId = nextMsg
-    ? typeof nextMsg.senderId === "object"
-      ? nextMsg.senderId._id
-      : nextMsg.senderId
-    : null;
+  const nextSenderId = nextMsg ? getEntityId(nextMsg.senderId) : null;
   const isLastOfBlock = senderId !== nextSenderId;
 
   const normalizedAttachments = msg.attachments || (msg.attachment ? [msg.attachment] : []);
@@ -51,6 +58,47 @@ function MessageItem({
     file?.mimeType?.startsWith("audio/") ||
     file?.mimetype?.startsWith("audio/") ||
     file?.fileName?.match(/\.(webm|mp3|m4a|wav|ogg)$/i);
+
+  const getFileName = (file) =>
+    file?.fileName || file?.originalName || file?.name || "Tep dinh kem";
+
+  const getFileExtension = (file) => {
+    const name = getFileName(file);
+    const ext = name.includes(".") ? name.split(".").pop() : "";
+    return ext ? ext.toUpperCase() : "FILE";
+  };
+
+  const formatFileSize = (file) => {
+    const rawSize = file?.size ?? file?.fileSize ?? file?.bytes;
+    const size = Number(rawSize);
+    if (!Number.isFinite(size) || size <= 0) return "";
+
+    const units = ["B", "KB", "MB", "GB"];
+    let value = size;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+
+    return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  const getFileIcon = (file) => {
+    const ext = getFileExtension(file).toLowerCase();
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return <FiArchive />;
+    if (["txt", "doc", "docx", "pdf", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+      return <FiFileText />;
+    }
+    return <FiFile />;
+  };
+
+  const renderFileMeta = (file) => {
+    const size = formatFileSize(file);
+    const extension = getFileExtension(file);
+    return size ? `${extension} • ${size}` : extension;
+  };
 
   const isOnlyImage =
     !msg.isRecalled &&
@@ -105,7 +153,7 @@ function MessageItem({
                 : msg.type === "mixed"
                   ? "mixed-bubble"
                   : ""
-            }`}
+            } ${msg.isViolation ? "violation-bubble" : ""}`}
             style={
               isMediaBubble
                 ? {
@@ -160,10 +208,7 @@ function MessageItem({
                         if (!repliedMsg) return "Tin nhắn đã trả lời";
 
                         const repliedSender = getSender(repliedMsg);
-                        const repliedSenderId =
-                          typeof repliedMsg.senderId === "object"
-                            ? repliedMsg.senderId._id
-                            : repliedMsg.senderId;
+                        const repliedSenderId = getEntityId(repliedMsg.senderId);
 
                         return repliedSenderId === currentUserId
                           ? "Bạn"
@@ -209,6 +254,15 @@ function MessageItem({
                         }}
                       />
                     )}
+                    {msg.isViolation && (
+                      <div className="violation-warning">
+                        <span className="violation-warning-icon">!</span>
+                        <span>
+                          {msg.violationMessage ||
+                            "Tin nhắn chứa nội dung vi phạm quy tắc cộng đồng."}
+                        </span>
+                      </div>
+                    )}
                     {normalizedAttachments.map((file, i) => (
                       <div key={i} className="attachment-modern">
                         {file.type === "image" ? (
@@ -231,8 +285,40 @@ function MessageItem({
                           <div
                             className="file-card-modern"
                             onClick={() => window.open(file.url)}
+                            title={getFileName(file)}
                           >
-                            <FiDownload /> <span>{file.fileName}</span>
+                            <div className="file-card-icon">
+                              {getFileIcon(file)}
+                            </div>
+                            <div className="file-card-info">
+                              <span className="file-card-name">
+                                {getFileName(file)}
+                              </span>
+                              <span className="file-card-meta">
+                                {renderFileMeta(file)}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="file-card-action"
+                              title="Mo file"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(file.url);
+                              }}
+                            >
+                              <FiExternalLink />
+                            </button>
+                            <a
+                              className="file-card-action"
+                              title="Tai xuong"
+                              href={file.url}
+                              download={getFileName(file)}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <FiDownload />
+                            </a>
+
                           </div>
                         )}
                       </div>
@@ -250,7 +336,7 @@ function MessageItem({
                 </div>
               </div>
             )}
-            {!msg.isRecalled && (
+            {!msg.isRecalled && !msg.isViolation && (
               <div
                 className={`message-hover-actions ${
                   hoveredMessageId === msg._id || menuMessageId === msg._id
@@ -355,7 +441,7 @@ function MessageItem({
               })}
             </div>
           )}
-          {reactionPickerMessageId === msg._id && !msg.isRecalled && (
+          {reactionPickerMessageId === msg._id && !msg.isRecalled && !msg.isViolation && (
             <div
               className={`reaction-picker-floating 
     ${isMe ? "me" : "other"} 

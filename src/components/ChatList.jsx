@@ -61,6 +61,7 @@ function ChatList({
   }, [activeConversationId]);
 
   const stripHtml = (html) => (html ? html.replace(/<[^>]+>/g, "") : "");
+  const getBotName = (conv) => conv?.name || "AI Assistant";
 
   const handleGroupUpdate = (updatedConv) => {
     if (updatedConv.isRemoved) {
@@ -166,15 +167,46 @@ function ChatList({
 
   useEffect(() => {
     const handleIncomingForBadge = (data) => {
+      const msg = data.message || data;
       const convId =
         data.groupId ||
         data.conversationId ||
-        data.message?.conversationId?._id ||
-        data.message?.conversationId;
+        msg?.conversationId?._id ||
+        msg?.conversationId;
       if (!convId) return;
 
+      const senderId = msg?.senderId?._id || msg?.senderId || data.senderId;
+      const isOwnMessage =
+        senderId && String(senderId) === String(currentUserId);
+
+      if (msg?._id && typeof setConversations === "function") {
+        setConversations((prev) => {
+          const idx = prev.findIndex((c) => String(c._id) === String(convId));
+          if (idx === -1) {
+            const newConversation = data.conversation || msg.conversationId;
+            return newConversation?._id
+              ? [{ ...newConversation, lastMessageId: msg }, ...prev]
+              : prev;
+          }
+
+          if (prev[idx].lastMessageId?._id === msg._id) return prev;
+
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessageId: msg,
+            updatedAt: msg.createdAt || new Date().toISOString(),
+          };
+
+          const [moved] = updated.splice(idx, 1);
+          return [moved, ...updated];
+        });
+      }
+
+      if (isOwnMessage) return;
+
       // Sử dụng REF ở đây để luôn trỏ tới activeConversation mới nhất mà ko cần đưa vào Dependency
-      if (convId === activeConvRef.current) {
+      if (String(convId) === String(activeConvRef.current)) {
         setUnread((prev) => ({ ...prev, [convId]: 0 }));
       } else {
         setUnread((prev) => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }));
@@ -240,7 +272,7 @@ function ChatList({
       socket.off("user_offline", handleUserOffline);
       socket.off("new_conversation", handleNewConversation);
     };
-  }, [setConversations]); // Đã dọn dẹp Dependency: Socket chỉ kết nối 1 lần DUY NHẤT
+  }, [currentUserId, setConversations]); // Đã dọn dẹp Dependency: Socket chỉ kết nối 1 lần DUY NHẤT
 
   const sortedConversations = useMemo(() => {
     return [...(conversations || [])]
@@ -248,7 +280,9 @@ function ChatList({
         const members = c?.members || [];
         const otherUser = members.find((m) => m?.userId?._id !== currentUserId);
         const name =
-          c.type === "group"
+          c.type === "bot"
+            ? getBotName(c)
+            : c.type === "group"
             ? c.name
             : otherUser?.userId?.fullName || "Unknown";
         return (name || "")
@@ -309,6 +343,7 @@ function ChatList({
   const renderItem = (conv) => {
     const members = conv?.members || [];
     const isGroup = conv.type === "group";
+    const isBot = conv.type === "bot";
     const otherUser = members.find((m) => m?.userId?._id !== currentUserId);
     const user = otherUser?.userId;
     const isActive = activeConversationId === conv._id;
@@ -347,13 +382,15 @@ function ChatList({
                 overflow: "hidden",
               }}
             >
-              {(isGroup ? conv.avatarUrl : user?.avatarUrl) ? (
+              {(isGroup || isBot ? conv.avatarUrl : user?.avatarUrl) ? (
                 <Image
-                  src={isGroup ? conv.avatarUrl : user.avatarUrl}
+                  src={isGroup || isBot ? conv.avatarUrl : user.avatarUrl}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : isGroup ? (
                 <HiUserGroup size={24} />
+              ) : isBot ? (
+                "AI"
               ) : (
                 user?.fullName?.charAt(0) || "?"
               )}
@@ -371,6 +408,8 @@ function ChatList({
             >
               {isGroup
                 ? conv.name || `Nhóm chat (${members.length})`
+                : isBot
+                  ? getBotName(conv)
                 : user?.fullName || "Unknown"}
             </div>
             <div

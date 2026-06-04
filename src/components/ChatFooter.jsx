@@ -1,7 +1,7 @@
 import StickerPicker from "./StickerPicker";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiPlusCircle, FiMic, FiSend, FiStopCircle } from "react-icons/fi";
+import { FiMic, FiPlusCircle, FiSend, FiStopCircle } from "react-icons/fi";
 
 function ChatFooter({
   input,
@@ -141,6 +141,7 @@ function ChatFooter({
               {(() => {
                 const sender = getSender(replyingMessage);
                 const senderId =
+                  replyingMessage.senderId &&
                   typeof replyingMessage.senderId === "object"
                     ? replyingMessage.senderId._id
                     : replyingMessage.senderId;
