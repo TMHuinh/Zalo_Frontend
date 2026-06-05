@@ -356,7 +356,7 @@ function ChatMain({
 
     if (payload.length === 0) {
       setSummaryText("");
-      setSummaryError("Khong co tin nhan hop le de tom tat");
+      setSummaryError("Không có tin nhắn hợp lệ để tóm tắt");
       return;
     }
 
@@ -364,11 +364,11 @@ function ChatMain({
     try {
       const res = await messageApi.summarizeConversation(payload);
       const summary = normalizeSummaryText(res.data);
-      setSummaryText(summary || "Khong co noi dung tom tat");
+      setSummaryText(summary || "không có nội dung tóm tắt");
     } catch (err) {
       setSummaryText("");
       setSummaryError(
-        err?.response?.data?.message || "Tom tat tin nhan that bai",
+        err?.response?.data?.message || "Tóm tắt tin nhắn thất bại",
       );
     } finally {
       setIsSummarizing(false);

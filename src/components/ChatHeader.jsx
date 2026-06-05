@@ -167,7 +167,7 @@ function ChatHeader({
           <button
             className="header-action-btn"
             onClick={onOpenSummary}
-            title="Tom tat tin nhan"
+            title="Tóm tắt cuộc trò chuyện"
           >
             <HiDocumentText size={20} />
           </button>
