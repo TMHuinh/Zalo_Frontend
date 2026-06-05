@@ -62,6 +62,55 @@ function ChatList({
 
   const stripHtml = (html) => (html ? html.replace(/<[^>]+>/g, "") : "");
   const getBotName = (conv) => conv?.name || "AI Assistant";
+  const getMessageAttachments = (message) => {
+    if (!message) return [];
+    if (Array.isArray(message.attachments)) return message.attachments;
+    if (message.attachment) return [message.attachment];
+    return [];
+  };
+
+  const isImageAttachment = (file) =>
+    file?.type === "image" ||
+    file?.mimeType?.startsWith("image/") ||
+    file?.mimetype?.startsWith("image/") ||
+    file?.fileName?.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i) ||
+    file?.originalName?.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i) ||
+    file?.name?.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i);
+
+  const isAudioAttachment = (file) =>
+    file?.type === "audio" ||
+    file?.type === "voice" ||
+    file?.mimeType?.startsWith("audio/") ||
+    file?.mimetype?.startsWith("audio/") ||
+    file?.fileName?.match(/\.(webm|mp3|m4a|wav|ogg)$/i) ||
+    file?.originalName?.match(/\.(webm|mp3|m4a|wav|ogg)$/i) ||
+    file?.name?.match(/\.(webm|mp3|m4a|wav|ogg)$/i);
+
+  const getLastMessagePreview = (message) => {
+    if (!message) return "Chưa có tin nhắn";
+    if (message.isRecalled) return "Tin nhắn đã thu hồi";
+    if (message.type === "sticker") return "Đã gửi 1 sticker";
+
+    const text = stripHtml(message.content).trim();
+    if (text) return text;
+
+    const attachments = getMessageAttachments(message);
+    if (message.type === "voice" || message.type === "audio") {
+      return "Đã gửi 1 tin nhắn thoại";
+    }
+    if (attachments.length === 0) return "";
+
+    const count = attachments.length;
+    if (attachments.every(isAudioAttachment)) {
+      return count > 1
+        ? `Đã gửi ${count} tin nhắn thoại`
+        : "Đã gửi 1 tin nhắn thoại";
+    }
+    if (attachments.every(isImageAttachment)) {
+      return count > 1 ? `Đã gửi ${count} hình ảnh` : "Đã gửi 1 hình ảnh";
+    }
+    return count > 1 ? `Đã gửi ${count} file` : "Đã gửi 1 file";
+  };
 
   const handleGroupUpdate = (updatedConv) => {
     if (updatedConv.isRemoved) {
@@ -421,11 +470,7 @@ function ChatList({
                 textOverflow: "ellipsis",
               }}
             >
-              {conv.lastMessageId
-                ? conv.lastMessageId.isRecalled
-                  ? "Tin nhắn đã thu hồi"
-                  : stripHtml(conv.lastMessageId.content)
-                : "Chưa có tin nhắn"}
+              {getLastMessagePreview(conv.lastMessageId)}
             </div>
           </Col>
           <Col xs="auto" className="ms-2 d-flex align-items-center">
