@@ -1,4 +1,10 @@
-import { HiChatAlt2, HiDocumentText, HiRefresh, HiSparkles, HiX } from "react-icons/hi";
+import {
+  HiChatAlt2,
+  HiDocumentText,
+  HiRefresh,
+  HiSparkles,
+  HiX,
+} from "react-icons/hi";
 
 function SummaryModal({
   show,
@@ -25,8 +31,8 @@ function SummaryModal({
               <HiSparkles size={20} />
             </div>
             <div>
-              <h4>Tom tat tin nhan</h4>
-              <span>Gom y nhanh nhung diem chinh trong cuoc tro chuyen</span>
+              <h4>Tóm Tắt Tin Nhắn</h4>
+              <span>góm ý nhanh những điểm chính trong cuộc trò chuyện</span>
             </div>
           </div>
           <button className="summary-modal-close" onClick={onHide}>
@@ -38,20 +44,18 @@ function SummaryModal({
           <div className="summary-meta-pill">
             <HiChatAlt2 size={16} />
             {messageCount > 0
-              ? `${messageCount} tin nhan da tai`
-              : "Chua co tin nhan"}
+              ? `${messageCount} tin nhắn đã tải`
+              : "Chưa có tin nhắn"}
           </div>
           <div className="summary-meta-pill">
             <HiDocumentText size={16} />
-            Ket qua tom tat
+            Kết quả tóm tắt
           </div>
         </div>
 
         <div className="summary-modal-body">
           {loading && (
-            <div className="summary-modal-loading">
-              Dang tao ban tom tat...
-            </div>
+            <div className="summary-modal-loading">Đang tạo bản tóm tắt...</div>
           )}
 
           {!loading && error && (
@@ -62,7 +66,7 @@ function SummaryModal({
             <div className="summary-result-card">
               <div className="summary-result-label">
                 <HiSparkles size={16} />
-                Noi dung chinh
+                Nội dung chính
               </div>
               <div
                 className="summary-content"
@@ -73,7 +77,7 @@ function SummaryModal({
 
           {!loading && !error && !normalizedSummary && (
             <div className="summary-modal-empty">
-              Bam nut ben duoi de tao tom tat cuoc tro chuyen.
+              Bấm nút bên dưới để tạo tóm tắt cuộc trò chuyện.
             </div>
           )}
         </div>
@@ -86,7 +90,7 @@ function SummaryModal({
             disabled={loading || messageCount === 0}
           >
             <HiRefresh size={18} />
-            Tom tat lai
+            Tóm tắt lại
           </button>
         </div>
       </div>
