@@ -32,7 +32,7 @@ function SummaryModal({
             </div>
             <div>
               <h4>Tóm Tắt Tin Nhắn</h4>
-              <span>góm ý nhanh những điểm chính trong cuộc trò chuyện</span>
+              <span>Góp ý nhanh những điểm chính trong cuộc trò chuyện</span>
             </div>
           </div>
           <button className="summary-modal-close" onClick={onHide}>
@@ -59,7 +59,7 @@ function SummaryModal({
           )}
 
           {!loading && error && (
-            <div className="summary-modal-error">{error}</div>
+            <div className="summary-modal-error">Vui lòng thử lại sau</div>
           )}
 
           {!loading && !error && normalizedSummary && (
